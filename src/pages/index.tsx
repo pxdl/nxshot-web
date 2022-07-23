@@ -1,7 +1,7 @@
 import type { NextPage } from "next";
 import Head from "next/head";
 
-import { isChromium, isChrome, isOpera } from "react-device-detect";
+import { isChromium, isChrome, isOpera, isEdge, isEdgeChromium } from "react-device-detect";
 
 import { CameraIcon, FolderIcon } from "@heroicons/react/solid"
 import { useEffect, useState } from "react";
@@ -12,26 +12,52 @@ type TechnologyCardProps = {
   documentation: string;
 };
 
+interface ExtendedFile extends File {
+  relativePath?: string[] | null;
+}
+
+async function toArray(asyncIterator: AsyncIterableIterator<[string, FileSystemDirectoryHandle | FileSystemFileHandle]>) {
+  const arr = [];
+  for await (const i of asyncIterator) arr.push(i);
+  return arr;
+}
+
+async function* getFilesRecursively(entry: FileSystemDirectoryHandle | FileSystemFileHandle, originalEntry: FileSystemDirectoryHandle) {
+  if (entry.kind === 'file') {
+    const file: ExtendedFile = await entry.getFile();
+    if (file !== null) {
+      file.relativePath = await originalEntry.resolve(entry);
+      yield file;
+    }
+  } else if (entry.kind === 'directory') {
+    for await (const handle of entry.values()) {
+      yield* getFilesRecursively(handle, originalEntry);
+    }
+  }
+}
+
 const Home: NextPage = () => {
   const [isCompatible, setIsCompatible] = useState(false);
+  const [files, setFiles] = useState<ExtendedFile[]>([]);
 
   useEffect(() => {
-    setIsCompatible(isChromium || isChrome || isOpera);
+    setIsCompatible(isChromium || isChrome || isOpera || isEdge || isEdgeChromium);
   }, []);
 
   const handleClick = async () => {
-    console.log("clicked");
-    const dirHandle = await (window as any).showDirectoryPicker()
-      .then(dirHandle => {
-        console.log(dirHandle);
-        //return dirHandle;
-      })
-      .catch(function (e) {
-        console.log(e);
+    const dirHandle = await window.showDirectoryPicker()
+      .catch((e) => {
+        if (e.name === "AbortError") return;
       });
-    // for await (const entry of dirHandle.values()) {
-    //   console.log(entry.kind, entry.name);
-    // }
+
+    if (dirHandle) {
+      let filesArray: ExtendedFile[] = [];
+      for await (const fileHandle of getFilesRecursively(dirHandle, dirHandle)) {
+        filesArray.push(fileHandle);
+      }
+      setFiles(filesArray);
+      console.log(filesArray.length);
+    }
   }
 
   return (
@@ -63,6 +89,24 @@ const Home: NextPage = () => {
             : <p className="text-gray-600 text-center">
               Your browser is not supported. Please use a compatible browser.
             </p>}
+        </div>
+
+        {files.length > 0 && (
+          <div className="container flex flex-col justify-items-center align-middle justify-center mt-8">
+            {files.map((file) => (
+              <div key={file.relativePath?.join("/")} className="flex flex-row justify-items-center align-middle justify-center mt-4">
+                  <FolderIcon className="w-6 h-6 mr-2 text-gray-100" />
+                  <span className="text-gray-600">{file.relativePath?.join("/")}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+
+        <div className="flex flex-col justify-items-center align-middle justify-center mt-8">
+          <p className="text-gray-600 text-center">
+            <span className="text-red-600">nx</span>shot is a work in progress.
+          </p>
         </div>
 
         {/* <form className="flex flex-col items-center align-middle justify-center space-y-6">
