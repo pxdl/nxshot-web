@@ -1,10 +1,11 @@
 import type { NextPage } from "next";
 import Head from "next/head";
+import { useEffect, useState } from "react";
+import gameids from "../utils/gameids.json"
 
 import { isChromium, isChrome, isOpera, isEdge, isEdgeChromium } from "react-device-detect";
 
-import { CameraIcon, FolderIcon } from "@heroicons/react/solid"
-import { useEffect, useState } from "react";
+import { CameraIcon, FolderDownloadIcon, FolderIcon } from "@heroicons/react/solid"
 
 type TechnologyCardProps = {
   name: string;
@@ -12,8 +13,24 @@ type TechnologyCardProps = {
   documentation: string;
 };
 
+type ScreenshotProps = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  gameid: string;
+  gamename: string;
+}
+
 interface ExtendedFile extends File {
   relativePath?: string[] | null;
+}
+
+interface FileWithHandle {
+  file: ExtendedFile;
+  handle: FileSystemFileHandle;
 }
 
 async function toArray(asyncIterator: AsyncIterableIterator<[string, FileSystemDirectoryHandle | FileSystemFileHandle]>) {
@@ -27,7 +44,11 @@ async function* getFilesRecursively(entry: FileSystemDirectoryHandle | FileSyste
     const file: ExtendedFile = await entry.getFile();
     if (file !== null) {
       file.relativePath = await originalEntry.resolve(entry);
-      yield file;
+      const fileWithHandle: FileWithHandle = {
+        file: file,
+        handle: entry
+      };
+      yield fileWithHandle;
     }
   } else if (entry.kind === 'directory') {
     for await (const handle of entry.values()) {
@@ -38,7 +59,8 @@ async function* getFilesRecursively(entry: FileSystemDirectoryHandle | FileSyste
 
 const Home: NextPage = () => {
   const [isCompatible, setIsCompatible] = useState(false);
-  const [files, setFiles] = useState<ExtendedFile[]>([]);
+  const [albumDirectory, setAlbumDirectory] = useState<FileSystemDirectoryHandle>();
+  const [files, setFiles] = useState<FileWithHandle[]>([]);
 
   useEffect(() => {
     setIsCompatible(isChromium || isChrome || isOpera || isEdge || isEdgeChromium);
@@ -50,13 +72,64 @@ const Home: NextPage = () => {
         if (e.name === "AbortError") return;
       });
 
-    if (dirHandle) {
-      let filesArray: ExtendedFile[] = [];
-      for await (const fileHandle of getFilesRecursively(dirHandle, dirHandle)) {
-        filesArray.push(fileHandle);
+    if (!dirHandle) return;
+
+    setAlbumDirectory(dirHandle);
+
+    let filesArray: FileWithHandle[] = [];
+
+    for await (const fileHandle of getFilesRecursively(dirHandle, dirHandle)) {
+      filesArray.push(fileHandle);
+    }
+
+    const picturesArray = filesArray.filter((file) => file.file.type?.includes("image/jpeg") && file.file.name.length == 53);
+    const videosArray = filesArray.filter((file) => file.file.type?.includes("video/mp4") && file.file.name.length == 53);
+    setFiles([...picturesArray, ...videosArray]);
+    //console.log(picturesArray.concat(videosArray));
+  }
+
+  const handleSave = async () => {
+    if (!albumDirectory) return;
+
+    console.log("Saving album");
+
+    const organizedDirectory = await albumDirectory.getDirectoryHandle('Organized', {
+      create: true,
+    });
+
+    const gameidsString = JSON.stringify(gameids);
+    const gameidsObject = JSON.parse(gameidsString);
+
+    for await (const fileWithHandle of files) {
+      const screenshot: ScreenshotProps = {
+        year: +fileWithHandle.file.name.substring(0, 4),
+        month: +fileWithHandle.file.name.substring(4, 6) - 1,
+        day: +fileWithHandle.file.name.substring(6, 8),
+        hour: +fileWithHandle.file.name.substring(8, 10),
+        minute: +fileWithHandle.file.name.substring(10, 12),
+        second: +fileWithHandle.file.name.substring(12, 14),
+        gameid: fileWithHandle.file.name.substring(17, 49),
+        gamename: gameidsObject[fileWithHandle.file.name.substring(17, 49)] ?? "Unknown",
       }
-      setFiles(filesArray);
-      console.log(filesArray.length);
+
+      const dateTime = new Date(
+        screenshot.year,
+        screenshot.month,
+        screenshot.day,
+        screenshot.hour,
+        screenshot.minute,
+        screenshot.second
+      );
+
+      const posix_timestamp = dateTime.getTime() / 1000;
+
+      console.log(screenshot);
+
+      const gameDirectoryHandle = await organizedDirectory.getDirectoryHandle(screenshot.gamename, {
+        create: true,
+      });
+
+      //await fileWithHandle.handle.move(gameDirectoryHandle);
     }
   }
 
@@ -68,7 +141,7 @@ const Home: NextPage = () => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <main className="container mx-auto flex flex-col items-center justify-center h-screen p-4">
+      <main className="container mx-auto flex flex-col items-center justify-center min-h-screen p-4">
         <div className="flex flex-row items-center justify-center">
           <CameraIcon className="w-10 h-10 mt-2 mr-1 md:w-16 md:h-16 md:mt-4 md:mr-2 text-gray-800 dark:text-gray-300" />
           <h1 className="text-5xl md:text-[5rem] leading-normal font-extrabold text-gray-800 dark:text-gray-300">
@@ -92,22 +165,24 @@ const Home: NextPage = () => {
         </div>
 
         {files.length > 0 && (
-          <div className="container flex flex-col justify-items-center align-middle justify-center mt-8">
-            {files.map((file) => (
-              <div key={file.relativePath?.join("/")} className="flex flex-row justify-items-center align-middle justify-center mt-4">
+          <>
+            <div className="container flex flex-col justify-items-center align-middle justify-center mt-8">
+              {files.map((file) => (
+                <div key={file.file.relativePath?.join("/")} className="flex flex-row justify-items-center align-middle justify-center mt-4">
                   <FolderIcon className="w-6 h-6 mr-2 text-gray-100" />
-                  <span className="text-gray-600">{file.relativePath?.join("/")}</span>
-              </div>
-            ))}
-          </div>
+                  <span className="text-gray-600">{file.file.relativePath?.join("/")}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col justify-items-center align-middle justify-center mt-8">
+              <button onClick={handleSave} className="text-gray-100 font-bold bg-red-600 hover:bg-red-700 active:bg-red-800 focus:outline-none focus:ring focus:ring-red-400 py-2 px-4 drop-shadow-xl rounded-md inline-flex items-center">
+                <FolderDownloadIcon className="w-6 h-6 mr-2" />
+                <span>Organize</span>
+              </button>
+            </div>
+          </>
         )}
-
-
-        <div className="flex flex-col justify-items-center align-middle justify-center mt-8">
-          <p className="text-gray-600 text-center">
-            <span className="text-red-600">nx</span>shot is a work in progress.
-          </p>
-        </div>
 
         {/* <form className="flex flex-col items-center align-middle justify-center space-y-6">
           <label className="block text-gray-100">
@@ -122,6 +197,11 @@ const Home: NextPage = () => {
             test
           </label>
         </form> */}
+        <footer className="mt-8">
+          <p className="text-gray-600 text-center">
+            <span className="text-red-600">nx</span>shot is a work in progress.
+          </p>
+        </footer>
       </main>
     </>
   );
