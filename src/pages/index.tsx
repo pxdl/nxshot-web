@@ -38,7 +38,7 @@ async function* getFilesRecursively(entry: FileSystemDirectoryHandle | FileSyste
       };
       yield fileWithHandle;
     }
-  } else if (entry.kind === 'directory') {
+  } else if (entry.kind === 'directory' && entry.name !== 'Organized') {
     for await (const handle of entry.values()) {
       yield* getFilesRecursively(handle, originalEntry);
     }
