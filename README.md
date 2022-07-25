@@ -1,6 +1,7 @@
 # nxshot-web
 Automatically organize ~~and timestamp~~ your Nintendo Switch captures
-<img width="801" alt="image" src="https://user-images.githubusercontent.com/17756301/178522830-a8979460-c4aa-43d0-ad52-38d3efabe11d.png">
+
+![image](https://user-images.githubusercontent.com/17756301/180696032-28916212-8851-49bf-a4df-2eabebaa4c4f.png)
 
 ## Requirements
 
@@ -13,6 +14,8 @@ Click on the "Select Folder" button and chose the ``../Nintendo/Album`` folder f
 After the number of recognized files show up, simply click the "Organize" button to automatically sort the screenshots.
 
 Organized ~~and tagged~~ files are copied to ``../Nintendo/Album/Organized`` in a folder with the game's name.
+
+<img width="801" alt="image" src="https://user-images.githubusercontent.com/17756301/178522830-a8979460-c4aa-43d0-ad52-38d3efabe11d.png">
 
 If some of your screenshots end up being copied to ``../Nintendo/Album/Organized/Unknown``, please open an issue with the game id from the screenshot filename so that I can update the gameid list.
 
