@@ -1,5 +1,5 @@
 # nxshot-web
-Automatically organize ~~and timestamp~~ your Nintendo Switch captures
+Automatically organize ~~and timestamp~~ your Nintendo Switch captures, now in your browser!
 
 ![image](https://user-images.githubusercontent.com/17756301/180696032-28916212-8851-49bf-a4df-2eabebaa4c4f.png)
 
