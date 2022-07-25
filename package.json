@@ -21,11 +21,14 @@
     "@types/react": "18.0.14",
     "@types/react-dom": "18.0.5",
     "@types/wicg-file-system-access": "^2020.9.5",
+    "@typescript-eslint/eslint-plugin": "^5.31.0",
+    "@typescript-eslint/parser": "^5.31.0",
     "autoprefixer": "^10.4.7",
-    "eslint": "8.18.0",
+    "eslint": "^8.20.0",
     "eslint-config-next": "12.2.1",
     "postcss": "^8.4.14",
+    "prettier": "^2.7.1",
     "tailwindcss": "^3.1.6",
-    "typescript": "4.7.4"
+    "typescript": "^4.7.4"
   }
 }

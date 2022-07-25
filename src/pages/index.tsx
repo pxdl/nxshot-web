@@ -3,9 +3,20 @@ import Head from "next/head";
 import { useEffect, useState } from "react";
 import gameids from "../data/gameids.json";
 
-import { isChromium, isChrome, isOpera, isEdge, isEdgeChromium } from "react-device-detect";
+import {
+  isChromium,
+  isChrome,
+  isOpera,
+  isEdge,
+  isEdgeChromium
+} from "react-device-detect";
 
-import { CameraIcon, DocumentIcon, FolderDownloadIcon, FolderIcon } from "@heroicons/react/solid"
+import {
+  CameraIcon,
+  DocumentIcon,
+  FolderDownloadIcon,
+  FolderIcon
+} from "@heroicons/react/solid";
 
 type ScreenshotProps = {
   year: number;
@@ -16,15 +27,18 @@ type ScreenshotProps = {
   second: number;
   gameid: string;
   gamename: string;
-}
+};
 
-async function* getFilesRecursively(entry: FileSystemDirectoryHandle | FileSystemFileHandle, originalEntry: FileSystemDirectoryHandle): AsyncGenerator<FileSystemFileHandle> {
-  if (entry.kind === 'file') {
+async function* getFilesRecursively(
+  entry: FileSystemDirectoryHandle | FileSystemFileHandle,
+  originalEntry: FileSystemDirectoryHandle
+): AsyncGenerator<FileSystemFileHandle> {
+  if (entry.kind === "file") {
     const file = await entry.getFile();
     if (file !== null) {
       yield entry;
     }
-  } else if (entry.kind === 'directory' && entry.name !== 'Organized') {
+  } else if (entry.kind === "directory" && entry.name !== "Organized") {
     for await (const handle of entry.values()) {
       yield* getFilesRecursively(handle, originalEntry);
     }
@@ -33,46 +47,52 @@ async function* getFilesRecursively(entry: FileSystemDirectoryHandle | FileSyste
 
 const Home: NextPage = () => {
   const [isCompatible, setIsCompatible] = useState(false);
-  const [albumDirectory, setAlbumDirectory] = useState<FileSystemDirectoryHandle>();
+  const [albumDirectory, setAlbumDirectory] =
+    useState<FileSystemDirectoryHandle>();
   const [files, setFiles] = useState<FileSystemFileHandle[]>([]);
 
   useEffect(() => {
-    setIsCompatible(isChromium || isChrome || isOpera || isEdge || isEdgeChromium);
+    setIsCompatible(
+      isChromium || isChrome || isOpera || isEdge || isEdgeChromium
+    );
   }, []);
 
   async function handleLoad() {
-    const dirHandle = await window.showDirectoryPicker()
-      .catch((e) => {
-        if (e.name === "AbortError")
-          return;
-      });
+    const dirHandle = await window.showDirectoryPicker().catch((e) => {
+      if (e.name === "AbortError") return;
+    });
 
-    if (!dirHandle)
-      return;
+    if (!dirHandle) return;
 
     setAlbumDirectory(dirHandle);
 
-    let filesArray: FileSystemFileHandle[] = [];
+    const filesArray: FileSystemFileHandle[] = [];
 
     for await (const fileHandle of getFilesRecursively(dirHandle, dirHandle)) {
       filesArray.push(fileHandle);
     }
 
-    const picturesArray = filesArray.filter((file) => file.name.length == 53 && file.name.endsWith(".jpg"));
-    const videosArray = filesArray.filter((file) => file.name.length == 53 && file.name.endsWith(".mp4"));
+    const picturesArray = filesArray.filter(
+      (file) => file.name.length == 53 && file.name.endsWith(".jpg")
+    );
+    const videosArray = filesArray.filter(
+      (file) => file.name.length == 53 && file.name.endsWith(".mp4")
+    );
 
     setFiles([...picturesArray, ...videosArray]);
   }
 
   async function handleSave() {
-    if (!albumDirectory)
-      return;
+    if (!albumDirectory) return;
 
     console.log("Saving album");
 
-    const organizedDirectory = await albumDirectory.getDirectoryHandle('Organized', {
-      create: true,
-    });
+    const organizedDirectory = await albumDirectory.getDirectoryHandle(
+      "Organized",
+      {
+        create: true
+      }
+    );
 
     const gameidsString = JSON.stringify(gameids);
     const gameidsObject = JSON.parse(gameidsString);
@@ -86,7 +106,7 @@ const Home: NextPage = () => {
         minute: +file.name.substring(10, 12),
         second: +file.name.substring(12, 14),
         gameid: file.name.substring(17, 49),
-        gamename: gameidsObject[file.name.substring(17, 49)] ?? "Unknown",
+        gamename: gameidsObject[file.name.substring(17, 49)] ?? "Unknown"
       };
 
       // const dateTime = new Date(
@@ -100,11 +120,16 @@ const Home: NextPage = () => {
 
       // const posix_timestamp = dateTime.getTime();
 
-      const gameDirectoryHandle = await organizedDirectory.getDirectoryHandle(screenshot.gamename, {
-        create: true,
-      });
+      const gameDirectoryHandle = await organizedDirectory.getDirectoryHandle(
+        screenshot.gamename,
+        {
+          create: true
+        }
+      );
 
-      const new_file = await gameDirectoryHandle.getFileHandle(file.name, { create: true });
+      const new_file = await gameDirectoryHandle.getFileHandle(file.name, {
+        create: true
+      });
 
       const new_file_writer = await new_file.createWritable();
       await new_file_writer.write(await file.getFile());
@@ -116,7 +141,10 @@ const Home: NextPage = () => {
     <>
       <Head>
         <title>nxshot</title>
-        <meta name="description" content="Nintendo Switch screenshot organizer" />
+        <meta
+          name="description"
+          content="Nintendo Switch screenshot organizer"
+        />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
@@ -133,14 +161,19 @@ const Home: NextPage = () => {
         </p>
 
         <div className="flex flex-col justify-items-center align-middle justify-center mt-8">
-          {isCompatible
-            ? <button onClick={handleLoad} className="text-gray-900 font-bold bg-gray-300 hover:bg-gray-400 active:bg-gray-500 focus:outline-none focus:ring focus:ring-gray-100 py-2 px-4 drop-shadow-xl rounded-md inline-flex items-center">
+          {isCompatible ? (
+            <button
+              onClick={handleLoad}
+              className="text-gray-900 font-bold bg-gray-300 hover:bg-gray-400 active:bg-gray-500 focus:outline-none focus:ring focus:ring-gray-100 py-2 px-4 drop-shadow-xl rounded-md inline-flex items-center"
+            >
               <FolderIcon className="w-6 h-6 mr-2" />
               <span>Select folder...</span>
             </button>
-            : <p className="text-gray-600 text-center">
+          ) : (
+            <p className="text-gray-600 text-center">
               Your browser is not supported. Please use a compatible browser.
-            </p>}
+            </p>
+          )}
         </div>
 
         {files.length > 0 && (
@@ -161,7 +194,15 @@ const Home: NextPage = () => {
             </div>
 
             <div className="flex flex-col justify-items-center align-middle justify-center mt-8">
-              <button onClick={handleSave} className="text-gray-100 font-bold bg-red-600 hover:bg-red-700 active:bg-red-800 focus:outline-none focus:ring focus:ring-red-400 py-2 px-4 drop-shadow-xl rounded-md inline-flex items-center">
+              <button
+                onClick={handleSave}
+                className="inline-flex items-center py-2 px-4
+                          drop-shadow-xl rounded-md
+                          text-gray-100 font-bold
+                          bg-red-600 hover:bg-red-700 
+                          active:bg-red-800 focus:ring-red-400
+                          focus:outline-none focus:ring"
+              >
                 <FolderDownloadIcon className="w-6 h-6 mr-2" />
                 <span>Organize</span>
               </button>
