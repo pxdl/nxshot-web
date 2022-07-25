@@ -5,7 +5,7 @@ import gameids from "../data/gameids.json"
 
 import { isChromium, isChrome, isOpera, isEdge, isEdgeChromium } from "react-device-detect";
 
-import { CameraIcon, FolderDownloadIcon, FolderIcon } from "@heroicons/react/solid"
+import { CameraIcon, DocumentIcon, FolderDownloadIcon, FolderIcon } from "@heroicons/react/solid"
 
 type ScreenshotProps = {
   year: number;
@@ -111,8 +111,6 @@ const Home: NextPage = () => {
 
       const posix_timestamp = dateTime.getTime() / 1000;
 
-      //console.log(screenshot);
-
       const gameDirectoryHandle = await organizedDirectory.getDirectoryHandle(screenshot.gamename, {
         create: true,
       });
@@ -120,6 +118,11 @@ const Home: NextPage = () => {
       // No special API to create copies, but still possible to do so by using
       // available read and write APIs.
       const new_file = await gameDirectoryHandle.getFileHandle(fileWithHandle.file.name, { create: true });
+
+      // const toBeModified = await new_file.getFile();
+      // const modified = {...toBeModified}
+      // modified.lastModified = posix_timestamp;
+
       const new_file_writer = await new_file.createWritable();
       await new_file_writer.write(await fileWithHandle.handle.getFile());
       await new_file_writer.close();
@@ -143,12 +146,12 @@ const Home: NextPage = () => {
         </div>
 
         <p className="text-2xl text-gray-800 dark:text-gray-300 text-center">
-          Automatically organize and timestamp your Nintendo Switch captures
+          Automatically organize your Nintendo Switch captures
         </p>
 
         <div className="flex flex-col justify-items-center align-middle justify-center mt-8">
           {isCompatible
-            ? <button onClick={handleClick} className="text-gray-100 font-bold bg-red-600 hover:bg-red-700 active:bg-red-800 focus:outline-none focus:ring focus:ring-red-400 py-2 px-4 drop-shadow-xl rounded-md inline-flex items-center">
+            ? <button onClick={handleClick} className="text-gray-900 font-bold bg-gray-300 hover:bg-gray-400 active:bg-gray-500 focus:outline-none focus:ring focus:ring-gray-100 py-2 px-4 drop-shadow-xl rounded-md inline-flex items-center">
               <FolderIcon className="w-6 h-6 mr-2" />
               <span>Select folder...</span>
             </button>
@@ -159,14 +162,20 @@ const Home: NextPage = () => {
 
         {files.length > 0 && (
           <>
-            <div className="container flex flex-col justify-items-center align-middle justify-center mt-8">
-              {files.map((file) => (
+            {/* <div className="container flex flex-col justify-items-center align-middle justify-center mt-8"> */}
+            {/* {files.map((file) => (
                 <div key={file.file.relativePath?.join("/")} className="flex flex-row justify-items-center align-middle justify-center mt-4">
                   <FolderIcon className="w-6 h-6 mr-2 text-gray-100" />
                   <span className="text-gray-600">{file.file.relativePath?.join("/")}</span>
                 </div>
-              ))}
+              ))} */}
+            <div className="flex flex-row justify-items-center align-middle justify-center mt-8">
+              <DocumentIcon className="w-6 h-6 mr-2 text-gray-100" />
+              <p className="text-gray-600 text-center">
+                {files.length} files found
+              </p>
             </div>
+            {/* </div> */}
 
             <div className="flex flex-col justify-items-center align-middle justify-center mt-8">
               <button onClick={handleSave} className="text-gray-100 font-bold bg-red-600 hover:bg-red-700 active:bg-red-800 focus:outline-none focus:ring focus:ring-red-400 py-2 px-4 drop-shadow-xl rounded-md inline-flex items-center">
