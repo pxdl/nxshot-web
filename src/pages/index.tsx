@@ -1,17 +1,11 @@
 import type { NextPage } from "next";
 import Head from "next/head";
 import { useEffect, useState } from "react";
-import gameids from "../utils/gameids.json"
+import gameids from "../data/gameids.json"
 
 import { isChromium, isChrome, isOpera, isEdge, isEdgeChromium } from "react-device-detect";
 
 import { CameraIcon, FolderDownloadIcon, FolderIcon } from "@heroicons/react/solid"
-
-type TechnologyCardProps = {
-  name: string;
-  description: string;
-  documentation: string;
-};
 
 type ScreenshotProps = {
   year: number;
@@ -33,13 +27,7 @@ interface FileWithHandle {
   handle: FileSystemFileHandle;
 }
 
-async function toArray(asyncIterator: AsyncIterableIterator<[string, FileSystemDirectoryHandle | FileSystemFileHandle]>) {
-  const arr = [];
-  for await (const i of asyncIterator) arr.push(i);
-  return arr;
-}
-
-async function* getFilesRecursively(entry: FileSystemDirectoryHandle | FileSystemFileHandle, originalEntry: FileSystemDirectoryHandle) {
+async function* getFilesRecursively(entry: FileSystemDirectoryHandle | FileSystemFileHandle, originalEntry: FileSystemDirectoryHandle): AsyncGenerator<FileWithHandle> {
   if (entry.kind === 'file') {
     const file: ExtendedFile = await entry.getFile();
     if (file !== null) {
@@ -123,13 +111,18 @@ const Home: NextPage = () => {
 
       const posix_timestamp = dateTime.getTime() / 1000;
 
-      console.log(screenshot);
+      //console.log(screenshot);
 
       const gameDirectoryHandle = await organizedDirectory.getDirectoryHandle(screenshot.gamename, {
         create: true,
       });
 
-      //await fileWithHandle.handle.move(gameDirectoryHandle);
+      // No special API to create copies, but still possible to do so by using
+      // available read and write APIs.
+      const new_file = await gameDirectoryHandle.getFileHandle(fileWithHandle.file.name, { create: true });
+      const new_file_writer = await new_file.createWritable();
+      await new_file_writer.write(await fileWithHandle.handle.getFile());
+      await new_file_writer.close();
     }
   }
 
@@ -204,27 +197,6 @@ const Home: NextPage = () => {
         </footer>
       </main>
     </>
-  );
-};
-
-const TechnologyCard = ({
-  name,
-  description,
-  documentation,
-}: TechnologyCardProps) => {
-  return (
-    <section className="flex flex-col justify-center p-6 duration-500 border-2 border-gray-500 rounded shadow-xl motion-safe:hover:scale-105">
-      <h2 className="text-lg text-gray-700">{name}</h2>
-      <p className="text-sm text-gray-600">{description}</p>
-      <a
-        className="mt-3 text-sm underline text-violet-500 decoration-dotted underline-offset-2"
-        href={documentation}
-        target="_blank"
-        rel="noreferrer"
-      >
-        Documentation
-      </a>
-    </section>
   );
 };
 
