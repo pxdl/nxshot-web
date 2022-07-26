@@ -174,7 +174,7 @@ const Home: NextPage = () => {
           {isCompatible ? (
             <button
               onClick={handleLoad}
-              className="text-gray-900 font-bold bg-gray-300 hover:bg-gray-400 active:bg-gray-500 focus:outline-none focus:ring focus:ring-gray-100 py-2 px-4 drop-shadow-xl rounded-md inline-flex items-center"
+              className="dark:text-gray-900 text-gray-100 font-bold dark:bg-gray-300 bg-gray-700 dark:hover:bg-gray-400 hover:bg-gray-800 dark:active:bg-gray-500 active:bg-gray-900 focus:outline-none focus:ring dark:focus:ring-gray-100 focus:ring-gray-500 py-2 px-4 drop-shadow-xl rounded-md inline-flex items-center"
             >
               <FolderIcon className="w-6 h-6 mr-2" />
               <span>Select folder...</span>
@@ -198,7 +198,7 @@ const Home: NextPage = () => {
             </div> */}
 
             <div className="flex flex-row justify-items-center align-middle justify-center mt-8">
-              <DocumentIcon className="w-6 h-6 mr-2 text-gray-100" />
+              <DocumentIcon className="w-6 h-6 mr-2 text-gray-800 dark:text-gray-300" />
               <p className="text-gray-600 text-center">
                 {currentFileIndex === 0 && <>{files.length} files found</>}
                 {currentFileIndex > 0 && currentFileIndex < files.length && (
