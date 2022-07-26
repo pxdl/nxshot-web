@@ -53,6 +53,7 @@ const Home: NextPage = () => {
   const [albumDirectory, setAlbumDirectory] =
     useState<FileSystemDirectoryHandle>();
   const [files, setFiles] = useState<FileSystemFileHandle[]>([]);
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
 
   useEffect(() => {
     setIsCompatible(
@@ -83,6 +84,7 @@ const Home: NextPage = () => {
     );
 
     setFiles([...picturesArray, ...videosArray]);
+    setCurrentFileIndex(0);
   }
 
   async function handleSave() {
@@ -98,6 +100,7 @@ const Home: NextPage = () => {
     );
 
     const gameidsObject: GameIds = gameids;
+    let fileIndex = 0;
 
     for await (const file of files) {
       const screenshot: ScreenshotProps = {
@@ -136,6 +139,9 @@ const Home: NextPage = () => {
       const new_file_writer = await new_file.createWritable();
       await new_file_writer.write(await file.getFile());
       await new_file_writer.close();
+
+      fileIndex++;
+      setCurrentFileIndex(fileIndex);
     }
   }
 
@@ -188,10 +194,17 @@ const Home: NextPage = () => {
                 </div>
               ))}
             </div> */}
+
             <div className="flex flex-row justify-items-center align-middle justify-center mt-8">
               <DocumentIcon className="w-6 h-6 mr-2 text-gray-100" />
               <p className="text-gray-600 text-center">
-                {files.length} files found
+                {currentFileIndex == 0 && <>{files.length} files found</>}
+                {currentFileIndex > 0 && currentFileIndex < files.length && (
+                  <>
+                    File {currentFileIndex} of {files.length}
+                  </>
+                )}
+                {currentFileIndex == files.length && <>All files processed</>}
               </p>
             </div>
 
