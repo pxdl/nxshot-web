@@ -13,9 +13,11 @@ import {
 
 import {
   CameraIcon,
+  CheckIcon,
   DocumentIcon,
   FolderDownloadIcon,
-  FolderIcon
+  FolderIcon,
+  FolderOpenIcon
 } from "@heroicons/react/solid";
 
 interface GameIds {
@@ -198,36 +200,60 @@ const Home: NextPage = () => {
             <div className="flex flex-row justify-items-center align-middle justify-center mt-8">
               <DocumentIcon className="w-6 h-6 mr-2 text-gray-100" />
               <p className="text-gray-600 text-center">
-                {currentFileIndex == 0 && <>{files.length} files found</>}
+                {currentFileIndex === 0 && <>{files.length} files found</>}
                 {currentFileIndex > 0 && currentFileIndex < files.length && (
                   <>
                     File {currentFileIndex} of {files.length}
                   </>
                 )}
-                {currentFileIndex == files.length && <>All files processed</>}
+                {currentFileIndex === files.length && <>All files processed</>}
               </p>
             </div>
 
-            <div className="flex flex-col justify-items-center align-middle justify-center mt-8">
-              <button
-                onClick={handleSave}
-                className="inline-flex items-center py-2 px-4
+            {currentFileIndex !== files.length && (
+              <div className="flex flex-col justify-items-center align-middle justify-center mt-8">
+                <button
+                  onClick={handleSave}
+                  className="inline-flex items-center py-2 px-4
                           drop-shadow-xl rounded-md
                           text-gray-100 font-bold
                           bg-red-600 hover:bg-red-700 
                           active:bg-red-800 focus:ring-red-400
                           focus:outline-none focus:ring"
-              >
-                <FolderDownloadIcon className="w-6 h-6 mr-2" />
-                <span>Organize</span>
-              </button>
-            </div>
+                >
+                  <FolderDownloadIcon className="w-6 h-6 mr-2" />
+                  <span>Organize</span>
+                </button>
+              </div>
+            )}
+            {currentFileIndex === files.length && (
+              <div className="flex flex-col justify-items-center align-middle justify-center mt-8">
+                <button
+                  disabled
+                  className="inline-flex items-center py-2 px-4
+                        drop-shadow-xl rounded-md
+                        text-gray-100 font-bold
+                        bg-green-600"
+                >
+                  <CheckIcon className="w-6 h-6 mr-2" />
+                  <span>Done!</span>
+                </button>
+              </div>
+            )}
           </>
         )}
 
         <footer className="mt-8">
           <p className="text-gray-600 text-center">
-            <span className="text-red-600">nx</span>shot is a work in progress.
+            <span className="text-red-600">nx</span>shot is a{" "}
+            <a
+              href="https://github.com/s1cp/nxshot-web"
+              target="_blank"
+              className="underline"
+            >
+              work in progress
+            </a>
+            .
           </p>
         </footer>
       </main>
