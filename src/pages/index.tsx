@@ -1,7 +1,7 @@
 import type { NextPage } from "next";
 import Head from "next/head";
 import { useEffect, useState } from "react";
-import gameids from "../data/gameids.json";
+const gameids: GameIds = require("../data/gameids.json");
 
 import {
   isChromium,
@@ -17,6 +17,10 @@ import {
   FolderDownloadIcon,
   FolderIcon
 } from "@heroicons/react/solid";
+
+interface GameIds {
+  [key: string]: string;
+}
 
 type ScreenshotProps = {
   year: number;
@@ -94,8 +98,7 @@ const Home: NextPage = () => {
       }
     );
 
-    const gameidsString = JSON.stringify(gameids);
-    const gameidsObject = JSON.parse(gameidsString);
+    const gameidsObject: GameIds = gameids;
 
     for await (const file of files) {
       const screenshot: ScreenshotProps = {
