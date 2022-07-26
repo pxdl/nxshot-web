@@ -1,7 +1,7 @@
 import type { NextPage } from "next";
 import Head from "next/head";
 import { useEffect, useState } from "react";
-const gameids: GameIds = require("../data/gameids.json");
+import gameids from "../data/gameids.json";
 
 import {
   isChromium,
