@@ -34,8 +34,7 @@ type ScreenshotProps = {
 };
 
 async function* getFilesRecursively(
-  entry: FileSystemDirectoryHandle | FileSystemFileHandle,
-  originalEntry: FileSystemDirectoryHandle
+  entry: FileSystemDirectoryHandle | FileSystemFileHandle
 ): AsyncGenerator<FileSystemFileHandle> {
   if (entry.kind === "file") {
     const file = await entry.getFile();
@@ -44,7 +43,7 @@ async function* getFilesRecursively(
     }
   } else if (entry.kind === "directory" && entry.name !== "Organized") {
     for await (const handle of entry.values()) {
-      yield* getFilesRecursively(handle, originalEntry);
+      yield* getFilesRecursively(handle);
     }
   }
 }
@@ -72,7 +71,7 @@ const Home: NextPage = () => {
 
     const filesArray: FileSystemFileHandle[] = [];
 
-    for await (const fileHandle of getFilesRecursively(dirHandle, dirHandle)) {
+    for await (const fileHandle of getFilesRecursively(dirHandle)) {
       filesArray.push(fileHandle);
     }
 
