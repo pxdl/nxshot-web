@@ -9,7 +9,7 @@ A supported browser is required to acces the local file system. Current supporte
 
 ## Usage
 
-Click on the "Select Folder" button and chose the ``../Nintendo/Album`` folder from your Nintendo Switch's SD card. You might have to accept the prompt from you browser to allow access to the folder.
+Click on the "Select Folder" button and choose the ``../Nintendo/Album`` folder from your Nintendo Switch's SD card. You might have to accept the prompt from your browser to allow access to the folder.
 
 After the number of recognized files show up, simply click the "Organize" button to automatically sort the screenshots.
 
