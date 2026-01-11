@@ -25,11 +25,16 @@ The ZIP file contains your screenshots organized by game name, with the correct 
 
 <img width="801" alt="image" src="https://user-images.githubusercontent.com/17756301/178522830-a8979460-c4aa-43d0-ad52-38d3efabe11d.png">
 
-If some of your screenshots end up in an "Unknown" folder, please open an issue with the game ID from the screenshot filename so that the game ID list can stay up to date.
+If some of your screenshots end up in an "Unknown" folder, please open an issue with the capture ID from the screenshot filename so that the database can be updated.
 
-## Current game ID list
+## Capture ID Database
 
-To see what games are currently automatically recognized, take a look at the [gameids.json](src/data/gameids.json) file.
+The code recognizes games using a database of capture IDs (the 32-character hex string in screenshot filenames). See [captureIds.json](public/data/captureIds.json) for the full list.
+
+The database is automatically updated weekly via GitHub Actions, pulling from:
+- [switchbrew.org](https://switchbrew.org/wiki/Title_list/Games)
+- [nswdb.com](http://nswdb.com)
+- [titledb](https://github.com/blawar/titledb)
 
 ## Development
 
@@ -43,6 +48,23 @@ pnpm dev
 ```bash
 pnpm test
 ```
+
+### Updating the Capture ID Database
+
+To manually update the capture ID database:
+
+```bash
+pip install -r scripts/requirements.txt
+export CAPTURE_ID_KEY=<key>
+python scripts/update_capture_ids.py
+```
+
+The encryption key can be found at offset `0x71000704D0` in the `capsrv` NSO loaded in IDA. The key hash for verification is `24e0dc62a15c11d38b622162ea2b4383`.
+
+Options:
+- `--source switchbrew|nswdb|titledb|all` - Choose data source (default: all)
+- `--keep-existing` - Merge with existing data instead of replacing
+- `--dry-run` - Show stats without writing file
 
 ## Help
 

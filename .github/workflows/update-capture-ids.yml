@@ -32,7 +32,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pycryptodome beautifulsoup4
+          pip install -r scripts/requirements.txt
 
       - name: Run update script
         env:
