@@ -1,6 +1,8 @@
 # nxshot-web
 
-Automatically organize and timestamp your Nintendo Switch captures, now in your browser!
+Automatically organize and timestamp your Nintendo Switch screenshots, now in your browser!
+
+<img width="4094" height="2222" alt="nxshot - Nintendo Switch Screenshot Organizer 2026-01-11 at 00 33 18@2x" src="https://github.com/user-attachments/assets/94a42aa5-3bf9-4e9e-9770-6482fb6887ef" />
 
 ## Requirements
 
@@ -12,11 +14,11 @@ A supported browser is required to access the local file system. Current support
 2. Accept the browser prompt to allow access to the folder
 3. After scanning completes, click "Download as ZIP" to get your organized screenshots
 
-The ZIP file contains your screenshots organized by game name, with correct file dates preserved.
+The ZIP file contains your screenshots organized by game name, with the correct file dates preserved.
 
 <img width="801" alt="image" src="https://user-images.githubusercontent.com/17756301/178522830-a8979460-c4aa-43d0-ad52-38d3efabe11d.png">
 
-If some of your screenshots end up in an "Unknown" folder, please open an issue with the game ID from the screenshot filename so that the game ID list stays up to date.
+If some of your screenshots end up in an "Unknown" folder, please open an issue with the game ID from the screenshot filename so that the game ID list can stay up to date.
 
 ## Current game ID list
 
