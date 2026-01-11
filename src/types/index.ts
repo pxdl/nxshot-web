@@ -12,3 +12,19 @@ export interface Screenshot {
   captureId: string;
   gameName: string;
 }
+
+export interface SourceMetadata {
+  count: number;
+  fetchedAt: string;
+  sourceUpdatedAt: string | null;
+}
+
+export interface CaptureIdsMetadata {
+  totalCount: number;
+  generatedAt: string;
+  sources: {
+    switchbrew?: SourceMetadata;
+    nswdb?: SourceMetadata;
+    titledb?: SourceMetadata;
+  };
+}

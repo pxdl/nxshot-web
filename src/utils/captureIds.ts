@@ -1,9 +1,13 @@
-import type { CaptureIds } from "../types";
+import type { CaptureIds, CaptureIdsMetadata } from "../types";
 
 const CAPTURE_IDS_URL = "/data/captureIds.json";
+const METADATA_URL = "/data/captureIds.meta.json";
 
 let cache: CaptureIds | null = null;
 let loadingPromise: Promise<CaptureIds> | null = null;
+
+let metadataCache: CaptureIdsMetadata | null = null;
+let metadataLoadingPromise: Promise<CaptureIdsMetadata> | null = null;
 
 /**
  * Load capture IDs from the server with in-memory caching.
@@ -58,4 +62,34 @@ export function isCaptureIdsLoaded(): boolean {
 export function clearCaptureIdsCache(): void {
   cache = null;
   loadingPromise = null;
+  metadataCache = null;
+  metadataLoadingPromise = null;
+}
+
+/**
+ * Load capture IDs metadata from the server with in-memory caching.
+ */
+export async function loadCaptureIdsMetadata(): Promise<CaptureIdsMetadata> {
+  if (metadataCache) {
+    return metadataCache;
+  }
+
+  if (metadataLoadingPromise) {
+    return metadataLoadingPromise;
+  }
+
+  metadataLoadingPromise = fetch(METADATA_URL)
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Failed to load metadata: ${response.status}`);
+      }
+      const data: CaptureIdsMetadata = await response.json();
+      metadataCache = data;
+      return data;
+    })
+    .finally(() => {
+      metadataLoadingPromise = null;
+    });
+
+  return metadataLoadingPromise;
 }

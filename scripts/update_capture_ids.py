@@ -28,13 +28,16 @@ import hashlib
 import json
 import logging
 import os
+import re
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import TypedDict
 from urllib.error import URLError
-from urllib.request import urlopen, urlretrieve
+from urllib.request import Request, urlopen, urlretrieve
 
 from Crypto.Cipher import AES
 
@@ -84,17 +87,95 @@ def get_capture_id_key() -> bytes:
 
 # Data sources
 SWITCHBREW_URL = "https://switchbrew.org/wiki/Title_list/Games"
-NSWDB_URL = "http://nswdb.com/xml.php"
+NSWDB_URL = "https://nswdb.com/xml.php"
 TITLEDB_URL = "https://github.com/blawar/titledb/raw/refs/heads/master/US.en.json"
 
-# Output path (relative to script location)
+# Output paths (relative to script location)
 SCRIPT_DIR = Path(__file__).parent
 OUTPUT_PATH = SCRIPT_DIR.parent / "public" / "data" / "captureIds.json"
+METADATA_PATH = SCRIPT_DIR.parent / "public" / "data" / "captureIds.meta.json"
 
 
 class GameEntry(TypedDict):
     name: str
     region: str
+
+
+class SourceMetadata(TypedDict):
+    count: int
+    fetchedAt: str
+    sourceUpdatedAt: str | None
+
+
+class Metadata(TypedDict):
+    totalCount: int
+    generatedAt: str
+    sources: dict[str, SourceMetadata]
+
+
+class FetchResult(TypedDict):
+    captureIds: dict[str, str]
+    sourceUpdatedAt: str | None
+
+
+class SourceInfo(TypedDict):
+    count: int
+    sourceUpdatedAt: str | None
+
+
+def get_titledb_last_commit() -> str | None:
+    """
+    Get the last commit date for titledb US.en.json via GitHub API.
+    """
+    api_url = "https://api.github.com/repos/blawar/titledb/commits?path=US.en.json&per_page=1"
+    try:
+        req = Request(api_url, headers={"User-Agent": "nxshot-web/1.0"})
+        with urlopen(req, timeout=30) as response:
+            data = json.loads(response.read())
+            if data and len(data) > 0:
+                commit_date = data[0]["commit"]["committer"]["date"]
+                return commit_date
+    except Exception as e:
+        logger.debug(f"Failed to get titledb last commit: {e}")
+    return None
+
+
+def get_switchbrew_last_edited(html: bytes) -> str | None:
+    """
+    Parse the "last edited" date from switchbrew wiki page footer.
+    Format: "This page was last edited on 5 June 2025, at 05:14."
+    """
+    try:
+        # Look for the last edited text in the page
+        match = re.search(
+            rb'This page was last edited on (\d+ \w+ \d+), at (\d+:\d+)',
+            html
+        )
+        if match:
+            date_str = match.group(1).decode() + " " + match.group(2).decode()
+            # Parse "5 June 2025 05:14"
+            dt = datetime.strptime(date_str, "%d %B %Y %H:%M")
+            dt = dt.replace(tzinfo=timezone.utc)
+            return dt.isoformat()
+    except Exception as e:
+        logger.debug(f"Failed to parse switchbrew last edited: {e}")
+    return None
+
+
+def get_nswdb_last_modified() -> str | None:
+    """
+    Try to get last modified date from nswdb via HTTP Last-Modified header.
+    """
+    try:
+        req = Request(NSWDB_URL, method="HEAD")
+        with urlopen(req, timeout=30) as response:
+            last_modified = response.headers.get("Last-Modified")
+            if last_modified:
+                dt = parsedate_to_datetime(last_modified)
+                return dt.isoformat()
+    except Exception as e:
+        logger.debug(f"Failed to get nswdb last modified: {e}")
+    return None
 
 
 def encrypt_title_id(title_id: str, key: bytes) -> str:
@@ -145,7 +226,7 @@ def sanitize_game_name(name: str) -> str:
     return name.strip()
 
 
-def fetch_switchbrew(key: bytes) -> dict[str, str]:
+def fetch_switchbrew(key: bytes) -> FetchResult:
     """
     Fetch capture IDs from switchbrew.org wiki.
 
@@ -153,7 +234,7 @@ def fetch_switchbrew(key: bytes) -> dict[str, str]:
         key: 16-byte AES encryption key
 
     Returns:
-        Dict mapping Capture ID to "Game Name (REGION)"
+        FetchResult with capture IDs and source last edited date
     """
     logger.info("Fetching from switchbrew.org...")
 
@@ -161,14 +242,17 @@ def fetch_switchbrew(key: bytes) -> dict[str, str]:
         from bs4 import BeautifulSoup
     except ImportError:
         logger.error("BeautifulSoup not installed. Run: pip install beautifulsoup4")
-        return {}
+        return {"captureIds": {}, "sourceUpdatedAt": None}
 
     try:
         with urlopen(SWITCHBREW_URL, timeout=30) as response:
             html = response.read()
     except URLError as e:
         logger.error(f"Failed to fetch switchbrew.org: {e}")
-        return {}
+        return {"captureIds": {}, "sourceUpdatedAt": None}
+
+    # Get the last edited date from the page footer
+    source_updated_at = get_switchbrew_last_edited(html)
 
     soup = BeautifulSoup(html, "html.parser")
 
@@ -217,10 +301,10 @@ def fetch_switchbrew(key: bytes) -> dict[str, str]:
             continue
 
     logger.info(f"Found {len(capture_ids)} games from switchbrew.org")
-    return capture_ids
+    return {"captureIds": capture_ids, "sourceUpdatedAt": source_updated_at}
 
 
-def fetch_nswdb(key: bytes) -> dict[str, str]:
+def fetch_nswdb(key: bytes) -> FetchResult:
     """
     Fetch capture IDs from nswdb.com XML database.
 
@@ -228,9 +312,12 @@ def fetch_nswdb(key: bytes) -> dict[str, str]:
         key: 16-byte AES encryption key
 
     Returns:
-        Dict mapping Capture ID to "Game Name (REGION)"
+        FetchResult with capture IDs and source last modified date
     """
     logger.info("Fetching from nswdb.com...")
+
+    # Get last modified from HTTP header before downloading
+    source_updated_at = get_nswdb_last_modified()
 
     try:
         # Download to temp file
@@ -238,6 +325,7 @@ def fetch_nswdb(key: bytes) -> dict[str, str]:
             tmp_path = tmp.name
 
         urlretrieve(NSWDB_URL, tmp_path)
+
         tree = ET.parse(tmp_path)
         root = tree.getroot()
 
@@ -246,7 +334,7 @@ def fetch_nswdb(key: bytes) -> dict[str, str]:
 
     except (URLError, ET.ParseError) as e:
         logger.error(f"Failed to fetch nswdb.com: {e}")
-        return {}
+        return {"captureIds": {}, "sourceUpdatedAt": None}
 
     capture_ids: dict[str, str] = {}
 
@@ -283,10 +371,10 @@ def fetch_nswdb(key: bytes) -> dict[str, str]:
             continue
 
     logger.info(f"Found {len(capture_ids)} games from nswdb.com")
-    return capture_ids
+    return {"captureIds": capture_ids, "sourceUpdatedAt": source_updated_at}
 
 
-def fetch_titledb(key: bytes) -> dict[str, str]:
+def fetch_titledb(key: bytes) -> FetchResult:
     """
     Fetch capture IDs from blawar's titledb (US.en.json).
 
@@ -297,31 +385,34 @@ def fetch_titledb(key: bytes) -> dict[str, str]:
         key: 16-byte AES encryption key
 
     Returns:
-        Dict mapping Capture ID to game name
+        FetchResult with capture IDs and source last commit date
     """
     logger.info("Fetching from titledb (this may take a moment)...")
 
-    try:
-        import urllib.request
+    # Get last commit date via GitHub API
+    source_updated_at = get_titledb_last_commit()
 
+    try:
         # Download with progress indication
-        req = urllib.request.Request(
+        req = Request(
             TITLEDB_URL,
             headers={"User-Agent": "nxshot-web/1.0"}
         )
 
-        with urllib.request.urlopen(req, timeout=120) as response:
+        with urlopen(req, timeout=120) as response:
             # Read the entire response
             data = response.read()
             logger.info(f"Downloaded {len(data) / 1024 / 1024:.1f} MB")
 
         # Parse JSON
-        import json
         titledb = json.loads(data)
 
-    except Exception as e:
+    except (URLError, TimeoutError) as e:
         logger.error(f"Failed to fetch titledb: {e}")
-        return {}
+        return {"captureIds": {}, "sourceUpdatedAt": None}
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse titledb JSON: {e}")
+        return {"captureIds": {}, "sourceUpdatedAt": None}
 
     capture_ids: dict[str, str] = {}
     skipped = 0
@@ -357,7 +448,7 @@ def fetch_titledb(key: bytes) -> dict[str, str]:
             continue
 
     logger.info(f"Found {len(capture_ids)} games from titledb (skipped {skipped} invalid entries)")
-    return capture_ids
+    return {"captureIds": capture_ids, "sourceUpdatedAt": source_updated_at}
 
 
 def load_existing() -> dict[str, str]:
@@ -368,12 +459,25 @@ def load_existing() -> dict[str, str]:
     return {}
 
 
-def save_capture_ids(capture_ids: dict[str, str], dry_run: bool = False) -> None:
+def load_existing_metadata() -> Metadata | None:
+    """Load existing metadata if it exists."""
+    if METADATA_PATH.exists():
+        with open(METADATA_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return None
+
+
+def save_capture_ids(
+    capture_ids: dict[str, str],
+    source_info: dict[str, SourceInfo],
+    dry_run: bool = False
+) -> None:
     """
-    Save capture IDs to JSON file.
+    Save capture IDs and metadata to JSON files.
 
     Args:
         capture_ids: Dict mapping Capture ID to game name
+        source_info: Dict mapping source name to count and source updated timestamp
         dry_run: If True, only print stats without saving
     """
     # Sort by game name for easier diffing
@@ -386,8 +490,37 @@ def save_capture_ids(capture_ids: dict[str, str], dry_run: bool = False) -> None
     # Ensure output directory exists
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+    # Save capture IDs
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
         json.dump(sorted_ids, f, ensure_ascii=False, indent=4, sort_keys=False)
+
+    # Build metadata
+    now = datetime.now(timezone.utc).isoformat()
+    existing_metadata = load_existing_metadata()
+
+    sources: dict[str, SourceMetadata] = {}
+    for source_name in ["switchbrew", "nswdb", "titledb"]:
+        if source_name in source_info:
+            # Source was updated
+            info = source_info[source_name]
+            sources[source_name] = {
+                "count": info["count"],
+                "fetchedAt": now,
+                "sourceUpdatedAt": info["sourceUpdatedAt"],
+            }
+        elif existing_metadata and source_name in existing_metadata.get("sources", {}):
+            # Keep existing metadata for sources not updated
+            sources[source_name] = existing_metadata["sources"][source_name]
+
+    metadata: Metadata = {
+        "totalCount": len(sorted_ids),
+        "generatedAt": now,
+        "sources": sources,
+    }
+
+    # Save metadata
+    with open(METADATA_PATH, "w", encoding="utf-8") as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=2)
 
     logger.info(f"Saved {len(sorted_ids)} capture IDs to {OUTPUT_PATH}")
 
@@ -427,6 +560,7 @@ def main() -> int:
     key = get_capture_id_key()
 
     capture_ids: dict[str, str] = {}
+    source_info: dict[str, SourceInfo] = {}
 
     # Optionally start with existing data
     if args.keep_existing:
@@ -437,23 +571,35 @@ def main() -> int:
     # Order matters: later sources override earlier ones for duplicate IDs
     # titledb has the most complete/accurate names, so we fetch it last
     if args.source in ("switchbrew", "all"):
-        switchbrew_ids = fetch_switchbrew(key)
-        capture_ids.update(switchbrew_ids)
+        result = fetch_switchbrew(key)
+        source_info["switchbrew"] = {
+            "count": len(result["captureIds"]),
+            "sourceUpdatedAt": result["sourceUpdatedAt"],
+        }
+        capture_ids.update(result["captureIds"])
 
     if args.source in ("nswdb", "all"):
-        nswdb_ids = fetch_nswdb(key)
-        capture_ids.update(nswdb_ids)
+        result = fetch_nswdb(key)
+        source_info["nswdb"] = {
+            "count": len(result["captureIds"]),
+            "sourceUpdatedAt": result["sourceUpdatedAt"],
+        }
+        capture_ids.update(result["captureIds"])
 
     if args.source in ("titledb", "all"):
-        titledb_ids = fetch_titledb(key)
-        capture_ids.update(titledb_ids)
+        result = fetch_titledb(key)
+        source_info["titledb"] = {
+            "count": len(result["captureIds"]),
+            "sourceUpdatedAt": result["sourceUpdatedAt"],
+        }
+        capture_ids.update(result["captureIds"])
 
     if not capture_ids:
         logger.error("No capture IDs found from any source")
         return 1
 
     # Save results
-    save_capture_ids(capture_ids, dry_run=args.dry_run)
+    save_capture_ids(capture_ids, source_info, dry_run=args.dry_run)
 
     return 0
 

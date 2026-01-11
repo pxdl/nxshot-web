@@ -1,0 +1,21 @@
+{
+  "totalCount": 28512,
+  "generatedAt": "2026-01-11T22:47:18.864795+00:00",
+  "sources": {
+    "switchbrew": {
+      "count": 2242,
+      "fetchedAt": "2026-01-11T22:47:18.864795+00:00",
+      "sourceUpdatedAt": "2025-06-05T05:14:00+00:00"
+    },
+    "nswdb": {
+      "count": 3738,
+      "fetchedAt": "2026-01-11T22:47:18.864795+00:00",
+      "sourceUpdatedAt": null
+    },
+    "titledb": {
+      "count": 26565,
+      "fetchedAt": "2026-01-11T22:47:18.864795+00:00",
+      "sourceUpdatedAt": "2025-12-06T08:26:10Z"
+    }
+  }
+}

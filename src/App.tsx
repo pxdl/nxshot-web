@@ -9,6 +9,7 @@ import {
 } from "@heroicons/react/24/solid";
 
 import { Button } from "./components/Button";
+import { DatabaseInfo } from "./components/DatabaseInfo";
 import { FolderStructureGuide } from "./components/FolderStructureGuide";
 import { Spinner } from "./components/Spinner";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -211,6 +212,9 @@ export default function App() {
           </div>
         </div>
       </main>
+
+      {/* Database Info */}
+      <DatabaseInfo />
 
       {/* Footer */}
       <footer className="py-6 text-center">
