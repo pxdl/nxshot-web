@@ -87,7 +87,7 @@ export async function createZip(
       const arrayBuffer = await file.arrayBuffer();
       const data = new Uint8Array(arrayBuffer);
 
-      const zipPath = `${screenshot.gamename}/${fileHandle.name}`;
+      const zipPath = `${screenshot.gameName}/${fileHandle.name}`;
       const fileDate = screenshotToDate(screenshot);
 
       // Create file entry with date (no compression)

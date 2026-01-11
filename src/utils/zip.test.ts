@@ -14,8 +14,8 @@ describe("screenshotToDate", () => {
       hour: 13,
       minute: 27,
       second: 36,
-      gameid: "691C9B2C6D1F1E032DDC01FD026159FD",
-      gamename: "The Legend of Zelda: Breath of the Wild",
+      captureId: "691C9B2C6D1F1E032DDC01FD026159FD",
+      gameName: "TETRIS 99 (EUR USA)",
     };
 
     const result = screenshotToDate(screenshot);
@@ -36,8 +36,8 @@ describe("screenshotToDate", () => {
       hour: 10,
       minute: 0,
       second: 0,
-      gameid: "691C9B2C6D1F1E032DDC01FD026159FD",
-      gamename: "The Legend of Zelda: Breath of the Wild",
+      captureId: "691C9B2C6D1F1E032DDC01FD026159FD",
+      gameName: "TETRIS 99 (EUR USA)",
     };
 
     const result = screenshotToDate(screenshot);
@@ -54,8 +54,8 @@ describe("screenshotToDate", () => {
       hour: 0,
       minute: 0,
       second: 0,
-      gameid: "691C9B2C6D1F1E032DDC01FD026159FD",
-      gamename: "The Legend of Zelda: Breath of the Wild",
+      captureId: "691C9B2C6D1F1E032DDC01FD026159FD",
+      gameName: "TETRIS 99 (EUR USA)",
     };
 
     const result = screenshotToDate(screenshot);
@@ -73,8 +73,8 @@ describe("screenshotToDate", () => {
       hour: 23,
       minute: 59,
       second: 59,
-      gameid: "691C9B2C6D1F1E032DDC01FD026159FD",
-      gamename: "The Legend of Zelda: Breath of the Wild",
+      captureId: "691C9B2C6D1F1E032DDC01FD026159FD",
+      gameName: "TETRIS 99 (EUR USA)",
     };
 
     const result = screenshotToDate(screenshot);

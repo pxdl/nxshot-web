@@ -113,6 +113,7 @@ export default function App() {
                       <PhotoIcon className="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
                       <span className="text-slate-700 dark:text-slate-300 font-medium">
                         {status === "ready" && <>{files.length} files found</>}
+                        {status === "loading" && <>{processingPhase}</>}
                         {status === "processing" && (
                           <>
                             {processingPhase} ({currentFileIndex}/{totalFiles})
@@ -170,13 +171,13 @@ export default function App() {
                       </div>
                     )}
 
-                    {status === "processing" && (
+                    {(status === "loading" || status === "processing") && (
                       <Button
                         disabled
                         variant="primary"
                         icon={<Spinner className="w-5 h-5" />}
                       >
-                        Processing...
+                        {status === "loading" ? "Loading..." : "Processing..."}
                       </Button>
                     )}
 

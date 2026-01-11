@@ -1,9 +1,17 @@
 import { useRef, useState } from "react";
 import { collectSwitchScreenshots } from "../utils/filesystem";
 import { parseScreenshotFilename } from "../utils/screenshot";
+import { loadCaptureIds } from "../utils/captureIds";
 import { createZip, type ZipProgress } from "../utils/zip";
 
-export type ProcessorStatus = "idle" | "scanning" | "ready" | "processing" | "done" | "error";
+export type ProcessorStatus =
+  | "idle"
+  | "scanning"
+  | "ready"
+  | "loading"
+  | "processing"
+  | "done"
+  | "error";
 
 export interface ScreenshotProcessorState {
   status: ProcessorStatus;
@@ -66,7 +74,10 @@ export function useScreenshotProcessor() {
         currentFileIndex: 0,
         totalFiles: screenshots.length,
         status: screenshots.length > 0 ? "ready" : "idle",
-        error: screenshots.length === 0 ? "No Nintendo Switch screenshots found in this folder." : null,
+        error:
+          screenshots.length === 0
+            ? "No Nintendo Switch screenshots found in this folder."
+            : null,
       }));
     } catch (e) {
       if (e instanceof Error && e.name === "AbortError") {
@@ -87,11 +98,20 @@ export function useScreenshotProcessor() {
 
     setState((prev) => ({
       ...prev,
-      status: "processing",
+      status: "loading",
+      processingPhase: "Loading game database...",
       error: null,
     }));
 
     try {
+      // Load capture IDs before processing
+      const captureIds = await loadCaptureIds();
+
+      setState((prev) => ({
+        ...prev,
+        status: "processing",
+      }));
+
       const handleProgress = (progress: ZipProgress) => {
         setState((prev) => ({
           ...prev,
@@ -104,7 +124,15 @@ export function useScreenshotProcessor() {
         }));
       };
 
-      const filename = await createZip(state.files, parseScreenshotFilename, handleProgress);
+      // Create a parser function with capture IDs bound
+      const parseWithCaptureIds = (filename: string) =>
+        parseScreenshotFilename(filename, captureIds);
+
+      const filename = await createZip(
+        state.files,
+        parseWithCaptureIds,
+        handleProgress
+      );
       setState((prev) => ({
         ...prev,
         savedFilename: filename,
@@ -128,7 +156,8 @@ export function useScreenshotProcessor() {
     }
   };
 
-  const progress = state.totalFiles > 0 ? (state.currentFileIndex / state.totalFiles) * 100 : 0;
+  const progress =
+    state.totalFiles > 0 ? (state.currentFileIndex / state.totalFiles) * 100 : 0;
 
   return {
     ...state,

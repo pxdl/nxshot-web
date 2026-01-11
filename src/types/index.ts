@@ -1,4 +1,4 @@
-export interface GameIds {
+export interface CaptureIds {
   [key: string]: string;
 }
 
@@ -9,6 +9,6 @@ export interface Screenshot {
   hour: number;
   minute: number;
   second: number;
-  gameid: string;
-  gamename: string;
+  captureId: string;
+  gameName: string;
 }

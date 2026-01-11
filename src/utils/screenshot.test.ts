@@ -1,16 +1,23 @@
 import { describe, it, expect } from "vitest";
 import { parseScreenshotFilename } from "./screenshot";
+import type { CaptureIds } from "../types";
 
 // Real Nintendo Switch screenshot filename examples:
 // 2019022213273600-691C9B2C6D1F1E032DDC01FD026159FD.jpg
 // 2019022214575600-691C9B2C6D1F1E032DDC01FD026159FD.mp4
+
+// Mock capture IDs for testing
+// Note: 691C9B2C6D1F1E032DDC01FD026159FD is the capture ID for TETRIS 99
+const mockCaptureIds: CaptureIds = {
+  "691C9B2C6D1F1E032DDC01FD026159FD": "TETRIS 99 (EUR USA)",
+};
 
 describe("parseScreenshotFilename", () => {
   it("should parse a valid screenshot filename", () => {
     const filename = "2019022213273600-691C9B2C6D1F1E032DDC01FD026159FD.jpg";
     expect(filename.length).toBe(53);
 
-    const result = parseScreenshotFilename(filename);
+    const result = parseScreenshotFilename(filename, mockCaptureIds);
 
     expect(result.year).toBe(2019);
     expect(result.month).toBe(1); // February (0-indexed)
@@ -18,14 +25,15 @@ describe("parseScreenshotFilename", () => {
     expect(result.hour).toBe(13);
     expect(result.minute).toBe(27);
     expect(result.second).toBe(36);
-    expect(result.gameid).toBe("691C9B2C6D1F1E032DDC01FD026159FD");
+    expect(result.captureId).toBe("691C9B2C6D1F1E032DDC01FD026159FD");
+    expect(result.gameName).toBe("TETRIS 99 (EUR USA)");
   });
 
   it("should parse a video filename", () => {
     const filename = "2019022214575600-691C9B2C6D1F1E032DDC01FD026159FD.mp4";
     expect(filename.length).toBe(53);
 
-    const result = parseScreenshotFilename(filename);
+    const result = parseScreenshotFilename(filename, mockCaptureIds);
 
     expect(result.year).toBe(2019);
     expect(result.month).toBe(1);
@@ -35,19 +43,27 @@ describe("parseScreenshotFilename", () => {
     expect(result.second).toBe(56);
   });
 
-  it("should return 'Unknown' for unrecognized game IDs", () => {
+  it("should return 'Unknown' for unrecognized capture IDs", () => {
     const filename = "2019021922503100-FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF.jpg";
     expect(filename.length).toBe(53);
 
+    const result = parseScreenshotFilename(filename, mockCaptureIds);
+    expect(result.gameName).toBe("Unknown");
+  });
+
+  it("should return 'Unknown' when no captureIds provided", () => {
+    const filename = "2019021922503100-691C9B2C6D1F1E032DDC01FD026159FD.jpg";
+    expect(filename.length).toBe(53);
+
     const result = parseScreenshotFilename(filename);
-    expect(result.gamename).toBe("Unknown");
+    expect(result.gameName).toBe("Unknown");
   });
 
   it("should handle different dates correctly", () => {
     const filename = "2019021922503100-691C9B2C6D1F1E032DDC01FD026159FD.jpg";
     expect(filename.length).toBe(53);
 
-    const result = parseScreenshotFilename(filename);
+    const result = parseScreenshotFilename(filename, mockCaptureIds);
 
     expect(result.year).toBe(2019);
     expect(result.month).toBe(1); // February
@@ -61,7 +77,7 @@ describe("parseScreenshotFilename", () => {
     const filename = "2019121922503100-691C9B2C6D1F1E032DDC01FD026159FD.jpg";
     expect(filename.length).toBe(53);
 
-    const result = parseScreenshotFilename(filename);
+    const result = parseScreenshotFilename(filename, mockCaptureIds);
     expect(result.month).toBe(11); // December (0-indexed)
   });
 

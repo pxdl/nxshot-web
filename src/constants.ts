@@ -1,5 +1,5 @@
 // Nintendo Switch screenshot filename format:
-// YYYYMMDDHHMMSS???GAMEID????????????.ext
+// YYYYMMDDHHMMSS???CAPTUREID?????????.ext
 // Total length: 53 characters
 
 // Filename parsing positions
@@ -17,8 +17,8 @@ export const FILENAME = {
   MINUTE_END: 12,
   SECOND_START: 12,
   SECOND_END: 14,
-  GAMEID_START: 17,
-  GAMEID_END: 49,
+  CAPTURE_ID_START: 17,
+  CAPTURE_ID_END: 49,
 } as const;
 
 // Valid file extensions for Nintendo Switch captures
