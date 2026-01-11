@@ -218,7 +218,7 @@ export default function App() {
           <span className="font-semibold">shot</span>
           {" is "}
           <a
-            href="https://github.com/s1cp/nxshot-web"
+            href="https://github.com/pxdl/nxshot-web"
             target="_blank"
             rel="noopener noreferrer"
             className="text-slate-600 dark:text-slate-300 hover:text-red-500 dark:hover:text-red-400 underline underline-offset-2 transition-colors"
