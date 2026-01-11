@@ -2,7 +2,7 @@
 
 Automatically organize and timestamp your Nintendo Switch screenshots, now in your browser!
 
-<img width="4094" height="2222" alt="nxshot - Nintendo Switch Screenshot Organizer 2026-01-11 at 00 33 18@2x" src="https://github.com/user-attachments/assets/94a42aa5-3bf9-4e9e-9770-6482fb6887ef" />
+<img width="3204" height="2222" alt="nxshot - Nintendo Switch Screenshot Organizer 2026-01-11 at 00 37 42@2x" src="https://github.com/user-attachments/assets/014a486b-3341-4126-a357-1de4970dc4d8" />
 
 ## Requirements
 
