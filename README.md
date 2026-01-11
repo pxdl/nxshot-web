@@ -6,7 +6,14 @@ Automatically organize and timestamp your Nintendo Switch screenshots, now in yo
 
 ## Requirements
 
-A supported browser is required to access the local file system. Current supported browsers include Google Chrome, Microsoft Edge, Opera and other Chromium-based browsers.
+This code uses the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) ([`showDirectoryPicker`](https://developer.mozilla.org/en-US/docs/Web/API/Window/showDirectoryPicker)) to access local files. This API is currently supported in:
+
+- Google Chrome 86+
+- Microsoft Edge 86+
+- Opera 72+
+- Other Chromium-based browsers
+
+**Not supported:** Firefox, Safari
 
 ## Usage
 
