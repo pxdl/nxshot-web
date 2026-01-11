@@ -4,10 +4,19 @@
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Nintendo Switch screenshot organizer" />
-    <title>nxshot</title>
+    <meta name="description" content="Organize your Nintendo Switch screenshots by game with correct dates" />
+    <title>nxshot - Nintendo Switch Screenshot Organizer</title>
   </head>
-  <body class="dark:bg-gray-900 bg-gray-100">
+  <body class="bg-slate-100 dark:bg-slate-900">
+    <script>
+      (function() {
+        const stored = localStorage.getItem("theme");
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        if (stored === "dark" || (!stored && prefersDark)) {
+          document.documentElement.classList.add("dark");
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

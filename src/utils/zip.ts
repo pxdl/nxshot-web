@@ -1,5 +1,6 @@
 import { Zip, ZipPassThrough } from "fflate";
 import type { Screenshot } from "../types";
+import { DEFAULTS } from "../constants";
 
 /**
  * Create a Date object from screenshot metadata.
@@ -35,7 +36,7 @@ export async function createZip(
 ): Promise<string> {
   // Let user choose where to save
   const saveHandle = await window.showSaveFilePicker({
-    suggestedName: "Nintendo Switch Captures.zip",
+    suggestedName: DEFAULTS.ZIP_FILENAME,
     types: [
       {
         description: "ZIP Archive",
@@ -66,48 +67,57 @@ export async function createZip(
     if (pendingChunks.length === 0) return;
 
     // Write each chunk directly to avoid double memory allocation
+    // Type assertion is safe: fflate always uses ArrayBuffer, never SharedArrayBuffer
     for (const chunk of pendingChunks) {
-      await writableStream.write(chunk as unknown as BufferSource);
+      await writableStream.write(chunk as Uint8Array<ArrayBuffer>);
     }
     pendingChunks = [];
   };
 
-  // Process files
-  for (let i = 0; i < files.length; i++) {
+  try {
+    // Process files
+    for (let i = 0; i < files.length; i++) {
+      if (error) throw error;
+
+      const fileHandle = files[i];
+      if (!fileHandle) continue;
+
+      const screenshot = parseFilename(fileHandle.name);
+      const file = await fileHandle.getFile();
+      const arrayBuffer = await file.arrayBuffer();
+      const data = new Uint8Array(arrayBuffer);
+
+      const zipPath = `${screenshot.gamename}/${fileHandle.name}`;
+      const fileDate = screenshotToDate(screenshot);
+
+      // Create file entry with date (no compression)
+      const zipFile = new ZipPassThrough(zipPath);
+      zipFile.mtime = fileDate;
+
+      zip.add(zipFile);
+      zipFile.push(data, true); // true = final chunk for this file
+
+      // Flush after each file to keep memory low
+      await flushPending();
+
+      onProgress?.({ current: i + 1, total, phase: "processing" });
+    }
+
     if (error) throw error;
 
-    const fileHandle = files[i]!;
-    const screenshot = parseFilename(fileHandle.name);
-    const file = await fileHandle.getFile();
-    const arrayBuffer = await file.arrayBuffer();
-    const data = new Uint8Array(arrayBuffer);
+    // Finalize ZIP
+    onProgress?.({ current: total, total, phase: "finalizing" });
+    zip.end();
 
-    const zipPath = `${screenshot.gamename}/${fileHandle.name}`;
-    const fileDate = screenshotToDate(screenshot);
-
-    // Create file entry with date (no compression)
-    const zipFile = new ZipPassThrough(zipPath);
-    zipFile.mtime = fileDate;
-
-    zip.add(zipFile);
-    zipFile.push(data, true); // true = final chunk for this file
-
-    // Flush after each file to keep memory low
+    // Flush any remaining data (ZIP footer)
     await flushPending();
 
-    onProgress?.({ current: i + 1, total, phase: "processing" });
+    await writableStream.close();
+  } catch (e) {
+    // Ensure stream is closed on error to prevent resource leak
+    await writableStream.abort();
+    throw e;
   }
 
-  if (error) throw error;
-
-  // Finalize ZIP
-  onProgress?.({ current: total, total, phase: "finalizing" });
-  zip.end();
-
-  // Flush any remaining data (ZIP footer)
-  await flushPending();
-
-  await writableStream.close();
-
-  return saveHandle.name;
+  return saveHandle.name ?? DEFAULTS.ZIP_FILENAME;
 }
