@@ -1,4 +1,5 @@
 import { Zip, ZipPassThrough } from "fflate";
+import streamSaver from "streamsaver";
 import type { Screenshot } from "../types";
 import { DEFAULTS } from "../constants";
 
@@ -25,16 +26,32 @@ export interface ZipProgress {
 export type ProgressCallback = (progress: ZipProgress) => void;
 
 /**
- * Create and save a ZIP file with proper dates using fflate.
- * Streams directly to disk to handle large files.
- * Returns the saved filename.
+ * Check if native File System Access API is available.
  */
-export async function createZip(
-  files: FileSystemFileHandle[],
-  parseFilename: (filename: string) => Screenshot,
-  onProgress?: ProgressCallback
-): Promise<string> {
-  // Let user choose where to save
+function hasNativeFileSystemAccess(): boolean {
+  return "showSaveFilePicker" in window;
+}
+
+/**
+ * Detect Safari browser.
+ * Safari has issues with StreamSaver.js, so we need to use Blob download instead.
+ */
+export function isSafari(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return ua.includes("Safari") && !ua.includes("Chrome") && !ua.includes("Chromium");
+}
+
+interface WritableStreamResult {
+  stream: WritableStream<Uint8Array>;
+  filename: string;
+}
+
+/**
+ * Create a writable stream using native File System Access API.
+ * Returns the stream and the filename chosen by the user.
+ */
+async function createNativeWritableStream(): Promise<WritableStreamResult> {
   const saveHandle = await window.showSaveFilePicker({
     suggestedName: DEFAULTS.ZIP_FILENAME,
     types: [
@@ -46,6 +63,127 @@ export async function createZip(
   });
 
   const writableStream = await saveHandle.createWritable();
+
+  return {
+    stream: writableStream as unknown as WritableStream<Uint8Array>,
+    filename: saveHandle.name ?? DEFAULTS.ZIP_FILENAME,
+  };
+}
+
+/**
+ * Create a writable stream using StreamSaver.js for Firefox.
+ */
+function createStreamSaverWritableStream(): WritableStreamResult {
+  const filename = DEFAULTS.ZIP_FILENAME;
+  const fileStream = streamSaver.createWriteStream(filename);
+
+  return {
+    stream: fileStream,
+    filename,
+  };
+}
+
+/**
+ * Create ZIP using Blob download (for Safari).
+ * This buffers the entire ZIP in memory before downloading.
+ * Works reliably but may fail for very large collections (2GB+).
+ */
+async function createZipWithBlobDownload(
+  files: File[],
+  parseFilename: (filename: string) => Screenshot,
+  onProgress?: ProgressCallback
+): Promise<string> {
+  const filename = DEFAULTS.ZIP_FILENAME;
+  const total = files.length;
+
+  // Collect all chunks in memory
+  const chunks: Uint8Array[] = [];
+  let error: Error | null = null;
+
+  const zip = new Zip((err, chunk, _final) => {
+    if (err) {
+      error = err;
+      return;
+    }
+    if (chunk && chunk.length > 0) {
+      chunks.push(chunk);
+    }
+  });
+
+  // Process files
+  for (let i = 0; i < files.length; i++) {
+    if (error) throw error;
+
+    const file = files[i];
+    if (!file) continue;
+
+    const screenshot = parseFilename(file.name);
+    const arrayBuffer = await file.arrayBuffer();
+    const data = new Uint8Array(arrayBuffer);
+
+    const zipPath = `${screenshot.gameName}/${file.name}`;
+    const fileDate = screenshotToDate(screenshot);
+
+    // Create file entry with date (no compression for images/videos)
+    const zipFile = new ZipPassThrough(zipPath);
+    zipFile.mtime = fileDate;
+
+    zip.add(zipFile);
+    zipFile.push(data, true);
+
+    onProgress?.({ current: i + 1, total, phase: "processing" });
+  }
+
+  if (error) throw error;
+
+  // Finalize ZIP
+  onProgress?.({ current: total, total, phase: "finalizing" });
+  zip.end();
+
+  if (error) throw error;
+
+  // Create Blob and trigger download
+  const blob = new Blob(chunks as BlobPart[], { type: "application/zip" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  // Clean up after a short delay to ensure download starts
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+  return filename;
+}
+
+/**
+ * Create and save a ZIP file with proper dates using fflate.
+ * - Chromium: Uses native File System Access API (save picker UX)
+ * - Firefox: Uses StreamSaver.js (streaming to Downloads)
+ * - Safari: Uses Blob download (buffered in memory)
+ * Returns the saved filename.
+ */
+export async function createZip(
+  files: File[],
+  parseFilename: (filename: string) => Screenshot,
+  onProgress?: ProgressCallback
+): Promise<string> {
+  // Safari doesn't support StreamSaver.js properly, use Blob download
+  if (isSafari()) {
+    return createZipWithBlobDownload(files, parseFilename, onProgress);
+  }
+
+  // Choose between native API (Chromium) and StreamSaver.js (Firefox)
+  const useNative = hasNativeFileSystemAccess();
+
+  const writable = useNative
+    ? await createNativeWritableStream()
+    : createStreamSaverWritableStream();
+
+  const writer = writable.stream.getWriter();
   const total = files.length;
 
   // Collect chunks synchronously, flush after each file
@@ -66,10 +204,8 @@ export async function createZip(
   const flushPending = async () => {
     if (pendingChunks.length === 0) return;
 
-    // Write each chunk directly to avoid double memory allocation
-    // Type assertion is safe: fflate always uses ArrayBuffer, never SharedArrayBuffer
     for (const chunk of pendingChunks) {
-      await writableStream.write(chunk as Uint8Array<ArrayBuffer>);
+      await writer.write(chunk);
     }
     pendingChunks = [];
   };
@@ -79,18 +215,17 @@ export async function createZip(
     for (let i = 0; i < files.length; i++) {
       if (error) throw error;
 
-      const fileHandle = files[i];
-      if (!fileHandle) continue;
+      const file = files[i];
+      if (!file) continue;
 
-      const screenshot = parseFilename(fileHandle.name);
-      const file = await fileHandle.getFile();
+      const screenshot = parseFilename(file.name);
       const arrayBuffer = await file.arrayBuffer();
       const data = new Uint8Array(arrayBuffer);
 
-      const zipPath = `${screenshot.gameName}/${fileHandle.name}`;
+      const zipPath = `${screenshot.gameName}/${file.name}`;
       const fileDate = screenshotToDate(screenshot);
 
-      // Create file entry with date (no compression)
+      // Create file entry with date (no compression for images/videos)
       const zipFile = new ZipPassThrough(zipPath);
       zipFile.mtime = fileDate;
 
@@ -112,12 +247,17 @@ export async function createZip(
     // Flush any remaining data (ZIP footer)
     await flushPending();
 
-    await writableStream.close();
+    // Close the writer (also closes the underlying stream)
+    await writer.close();
   } catch (e) {
-    // Ensure stream is closed on error to prevent resource leak
-    await writableStream.abort();
+    // Ensure stream is aborted on error to prevent resource leak
+    try {
+      await writer.abort();
+    } catch {
+      // Ignore abort errors
+    }
     throw e;
   }
 
-  return saveHandle.name ?? DEFAULTS.ZIP_FILENAME;
+  return writable.filename;
 }

@@ -22,12 +22,14 @@
     "fflate": "^0.8.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "streamsaver": "^2.0.6",
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@types/react": "19.2.8",
     "@types/react-dom": "19.2.3",
+    "@types/streamsaver": "^2.0.5",
     "@types/wicg-file-system-access": "^2023.10.7",
     "@vitejs/plugin-react": "^5.1.2",
     "eslint": "^9.39.2",

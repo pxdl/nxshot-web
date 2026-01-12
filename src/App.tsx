@@ -1,23 +1,35 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import {
   CameraIcon,
   CheckCircleIcon,
   FolderIcon,
   ExclamationCircleIcon,
+  ExclamationTriangleIcon,
   ArrowDownTrayIcon,
   PhotoIcon,
 } from "@heroicons/react/24/solid";
 
 import { Button } from "./components/Button";
 import { DatabaseInfo } from "./components/DatabaseInfo";
+import { FolderInput } from "./components/FolderInput";
 import { FolderStructureGuide } from "./components/FolderStructureGuide";
 import { Spinner } from "./components/Spinner";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { useScreenshotProcessor } from "./hooks";
+import { isSafari } from "./utils/zip";
+
+// Safari warning threshold: 500MB
+const SAFARI_SIZE_WARNING_THRESHOLD = 500 * 1024 * 1024;
+
+// Format bytes to human readable string
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
 
 export default function App() {
-  const [isCompatible, setIsCompatible] = useState(false);
-
   const {
     status,
     error,
@@ -28,13 +40,15 @@ export default function App() {
     savedFilename,
     scanCount,
     progress,
-    selectFolder,
+    totalSizeBytes,
+    processFiles,
     downloadZip,
   } = useScreenshotProcessor();
 
-  useEffect(() => {
-    setIsCompatible("showDirectoryPicker" in window);
-  }, []);
+  // Check if we should show Safari large file warning
+  const showSafariWarning = useMemo(() => {
+    return isSafari() && totalSizeBytes > SAFARI_SIZE_WARNING_THRESHOLD;
+  }, [totalSizeBytes]);
 
   return (
     <div className="h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex flex-col overflow-auto relative">
@@ -61,154 +75,161 @@ export default function App() {
         {/* Main Card */}
         <div className="w-full max-w-md">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl shadow-slate-200 dark:shadow-slate-900/50 p-6 md:p-8">
-            {!isCompatible ? (
-              <div className="text-center py-4">
-                <ExclamationCircleIcon className="w-12 h-12 text-amber-500 mx-auto mb-3" aria-hidden="true" />
-                <p className="text-slate-600 dark:text-slate-400">
-                  Your browser is not supported.
-                  <br />
-                  Please use Chrome, Edge, or Opera.
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-6">
-                {/* Initial Folder Selection */}
-                {(status === "idle" || status === "scanning") && (
-                  <div className="flex flex-col gap-5">
-                    {status === "idle" && files.length === 0 && <FolderStructureGuide />}
+            <div className="flex flex-col gap-6">
+              {/* Initial Folder Selection */}
+              {(status === "idle" || status === "scanning") && (
+                <div className="flex flex-col gap-5">
+                  {status === "idle" && files.length === 0 && <FolderStructureGuide />}
 
-                    <Button
-                      onClick={selectFolder}
-                      disabled={status === "scanning"}
-                      variant="secondary"
-                      icon={status === "scanning" ? <Spinner className="w-5 h-5" /> : <FolderIcon className="w-5 h-5" />}
-                    >
-                      {status === "scanning"
-                        ? `Scanning... ${scanCount > 0 ? `(${scanCount} found)` : ""}`
-                        : "Select folder"}
-                    </Button>
-                  </div>
-                )}
-
-                {/* Error Message */}
-                {error && (
-                  <div
-                    role="alert"
-                    className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-800"
+                  <FolderInput
+                    onFilesSelected={processFiles}
+                    disabled={status === "scanning"}
+                    variant="secondary"
+                    icon={status === "scanning" ? <Spinner className="w-5 h-5" /> : <FolderIcon className="w-5 h-5" />}
                   >
-                    <div className="flex items-start gap-3">
-                      <ExclamationCircleIcon className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
-                      <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
-                    </div>
+                    {status === "scanning"
+                      ? `Scanning... ${scanCount > 0 ? `(${scanCount} found)` : ""}`
+                      : "Select folder"}
+                  </FolderInput>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {error && (
+                <div
+                  role="alert"
+                  className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-800"
+                >
+                  <div className="flex items-start gap-3">
+                    <ExclamationCircleIcon className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                    <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* File Status */}
-                {files.length > 0 && (
-                  <div className="flex flex-col gap-6">
-                    {/* Files Found Badge */}
-                    <div
-                      aria-live="polite"
-                      className="flex items-center justify-center gap-2 py-3 px-4 bg-slate-200 dark:bg-slate-700 rounded-xl"
-                    >
-                      <PhotoIcon className="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
-                      <span className="text-slate-700 dark:text-slate-300 font-medium">
-                        {status === "ready" && <>{files.length} files found</>}
-                        {status === "loading" && <>{processingPhase}</>}
-                        {status === "processing" && (
-                          <>
-                            {processingPhase} ({currentFileIndex}/{totalFiles})
-                          </>
-                        )}
-                        {status === "done" && <>{files.length} files processed</>}
-                      </span>
-                    </div>
+              {/* File Status */}
+              {files.length > 0 && (
+                <div className="flex flex-col gap-6">
+                  {/* Files Found Badge */}
+                  <div
+                    aria-live="polite"
+                    className="flex items-center justify-center gap-2 py-3 px-4 bg-slate-200 dark:bg-slate-700 rounded-xl"
+                  >
+                    <PhotoIcon className="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">
+                      {status === "ready" && <>{files.length} files found</>}
+                      {status === "loading" && <>{processingPhase}</>}
+                      {status === "processing" && (
+                        <>
+                          {processingPhase} ({currentFileIndex}/{totalFiles})
+                        </>
+                      )}
+                      {status === "done" && <>{files.length} files processed</>}
+                    </span>
+                  </div>
 
-                    {/* Progress Bar */}
-                    {status === "processing" && (
-                      <div>
+                  {/* Progress Bar */}
+                  {status === "processing" && (
+                    <div>
+                      <div
+                        role="progressbar"
+                        aria-valuenow={Math.round(progress)}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-label={`Processing files: ${Math.round(progress)}% complete`}
+                        className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"
+                      >
                         <div
-                          role="progressbar"
-                          aria-valuenow={Math.round(progress)}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                          aria-label={`Processing files: ${Math.round(progress)}% complete`}
-                          className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"
-                        >
-                          <div
-                            className="h-full bg-gradient-to-r from-red-500 to-red-600 rounded-full transition-all duration-300 ease-out"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">
-                          {Math.round(progress)}% complete
-                        </p>
+                          className="h-full bg-gradient-to-r from-red-500 to-red-600 rounded-full transition-all duration-300 ease-out"
+                          style={{ width: `${progress}%` }}
+                        />
                       </div>
-                    )}
+                      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">
+                        {Math.round(progress)}% complete
+                      </p>
+                    </div>
+                  )}
 
-                    {/* Action Buttons */}
-                    {status === "ready" && (
-                      <div className="flex flex-col gap-4">
-                        <div>
-                          <Button
-                            onClick={downloadZip}
-                            variant="primary"
-                            icon={<ArrowDownTrayIcon className="w-5 h-5" />}
-                          >
-                            Download as ZIP
-                          </Button>
-                          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 text-center">
-                            Organized by game with correct dates
+                  {/* Safari Warning for Large Files */}
+                  {status === "ready" && showSafariWarning && (
+                    <div
+                      role="alert"
+                      className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800"
+                    >
+                      <div className="flex items-start gap-3">
+                        <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                        <div className="text-sm text-amber-700 dark:text-amber-400">
+                          <p className="font-medium">Large collection detected ({formatSize(totalSizeBytes)})</p>
+                          <p className="mt-1">
+                            Safari may struggle with collections this size. Downloads may appear as 0KB or empty. For best results, use Chrome or Firefox.
                           </p>
                         </div>
-
-                        <Button
-                          onClick={selectFolder}
-                          variant="ghost"
-                          icon={<FolderIcon className="w-5 h-5" />}
-                        >
-                          Select a different folder
-                        </Button>
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                    {(status === "loading" || status === "processing") && (
-                      <Button
-                        disabled
-                        variant="primary"
-                        icon={<Spinner className="w-5 h-5" />}
-                      >
-                        {status === "loading" ? "Loading..." : "Processing..."}
-                      </Button>
-                    )}
-
-                    {status === "done" && (
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="inline-flex items-center gap-2 py-3 px-5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-xl">
-                          <CheckCircleIcon className="w-5 h-5" aria-hidden="true" />
-                          <span className="font-semibold">Done!</span>
-                        </div>
-
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                          Saved as{" "}
-                          <span className="font-medium text-slate-700 dark:text-slate-300">
-                            {savedFilename}
-                          </span>
+                  {/* Action Buttons */}
+                  {status === "ready" && (
+                    <div className="flex flex-col gap-4">
+                      <div>
+                        <Button
+                          onClick={downloadZip}
+                          variant="primary"
+                          icon={<ArrowDownTrayIcon className="w-5 h-5" />}
+                        >
+                          Download as ZIP
+                        </Button>
+                        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 text-center">
+                          Organized by game with correct dates
                         </p>
-
-                        <Button
-                          onClick={selectFolder}
-                          variant="secondary"
-                          icon={<FolderIcon className="w-5 h-5" />}
-                        >
-                          Select another folder
-                        </Button>
                       </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+
+                      <FolderInput
+                        onFilesSelected={processFiles}
+                        variant="ghost"
+                        icon={<FolderIcon className="w-5 h-5" />}
+                      >
+                        Select a different folder
+                      </FolderInput>
+                    </div>
+                  )}
+
+                  {(status === "loading" || status === "processing") && (
+                    <Button
+                      disabled
+                      variant="primary"
+                      icon={<Spinner className="w-5 h-5" />}
+                    >
+                      {status === "loading" ? "Loading..." : "Processing..."}
+                    </Button>
+                  )}
+
+                  {status === "done" && (
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="inline-flex items-center gap-2 py-3 px-5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-xl">
+                        <CheckCircleIcon className="w-5 h-5" aria-hidden="true" />
+                        <span className="font-semibold">Done!</span>
+                      </div>
+
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        Saved as{" "}
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
+                          {savedFilename}
+                        </span>
+                      </p>
+
+                      <FolderInput
+                        onFilesSelected={processFiles}
+                        variant="secondary"
+                        icon={<FolderIcon className="w-5 h-5" />}
+                      >
+                        Select another folder
+                      </FolderInput>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </main>
