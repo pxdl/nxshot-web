@@ -1,4 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+// Mock streamSaver before importing zip module
+vi.mock("streamsaver", () => ({
+  default: {
+    createWriteStream: vi.fn(),
+  },
+}));
+
 import { screenshotToDate } from "./zip";
 import type { Screenshot } from "../types";
 

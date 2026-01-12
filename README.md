@@ -4,16 +4,19 @@ Automatically organize and timestamp your Nintendo Switch screenshots, now in yo
 
 <img width="3204" height="2222" alt="nxshot - Nintendo Switch Screenshot Organizer 2026-01-11 at 00 37 42@2x" src="https://github.com/user-attachments/assets/014a486b-3341-4126-a357-1de4970dc4d8" />
 
-## Requirements
+## Browser Support
 
-This code uses the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) ([`showDirectoryPicker`](https://developer.mozilla.org/en-US/docs/Web/API/Window/showDirectoryPicker)) to access local files. This API is currently supported in:
+Works on all modern browsers:
 
 - Google Chrome 86+
 - Microsoft Edge 86+
+- Mozilla Firefox 90+
+- Safari 15.4+
 - Opera 72+
-- Other Chromium-based browsers
 
-**Not supported:** Firefox, Safari
+**Note:** On Chromium browsers (Chrome, Edge, Opera), you get a save file picker to choose where to save the ZIP. On Firefox and Safari, the ZIP downloads directly to your Downloads folder.
+
+The app uses streaming to efficiently handle large collections (2GB+) without running out of memory.
 
 ## Usage
 
