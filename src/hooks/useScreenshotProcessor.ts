@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { filterSwitchScreenshots } from "../utils/filesystem";
 import { parseScreenshotFilename } from "../utils/screenshot";
 import { loadCaptureIds } from "../utils/captureIds";
@@ -167,8 +167,11 @@ export function useScreenshotProcessor() {
   const progress =
     state.totalFiles > 0 ? (state.currentFileIndex / state.totalFiles) * 100 : 0;
 
-  // Calculate total size of all files in bytes
-  const totalSizeBytes = state.files.reduce((sum, file) => sum + file.size, 0);
+  // Calculate total size of all files in bytes (memoized for performance)
+  const totalSizeBytes = useMemo(
+    () => state.files.reduce((sum, file) => sum + file.size, 0),
+    [state.files]
+  );
 
   return {
     ...state,

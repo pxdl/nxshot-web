@@ -42,16 +42,16 @@ export function isSafari(): boolean {
   return ua.includes("Safari") && !ua.includes("Chrome") && !ua.includes("Chromium");
 }
 
+interface WritableStreamResult {
+  stream: WritableStream<Uint8Array>;
+  filename: string;
+}
+
 /**
  * Create a writable stream using native File System Access API.
  * Returns the stream and the filename chosen by the user.
  */
-async function createNativeWritableStream(): Promise<{
-  stream: WritableStream<Uint8Array>;
-  filename: string;
-  close: () => Promise<void>;
-  abort: () => Promise<void>;
-}> {
+async function createNativeWritableStream(): Promise<WritableStreamResult> {
   const saveHandle = await window.showSaveFilePicker({
     suggestedName: DEFAULTS.ZIP_FILENAME,
     types: [
@@ -67,38 +67,19 @@ async function createNativeWritableStream(): Promise<{
   return {
     stream: writableStream as unknown as WritableStream<Uint8Array>,
     filename: saveHandle.name ?? DEFAULTS.ZIP_FILENAME,
-    close: async () => {
-      await writableStream.close();
-    },
-    abort: async () => {
-      await writableStream.abort();
-    },
   };
 }
 
 /**
  * Create a writable stream using StreamSaver.js for Firefox.
  */
-function createStreamSaverWritableStream(): {
-  stream: WritableStream<Uint8Array>;
-  filename: string;
-  close: () => Promise<void>;
-  abort: () => Promise<void>;
-} {
+function createStreamSaverWritableStream(): WritableStreamResult {
   const filename = DEFAULTS.ZIP_FILENAME;
   const fileStream = streamSaver.createWriteStream(filename);
 
   return {
     stream: fileStream,
     filename,
-    close: async () => {
-      const writer = fileStream.getWriter();
-      await writer.close();
-    },
-    abort: async () => {
-      const writer = fileStream.getWriter();
-      await writer.abort();
-    },
   };
 }
 
@@ -173,7 +154,7 @@ async function createZipWithBlobDownload(
   document.body.removeChild(a);
 
   // Clean up after a short delay to ensure download starts
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 
   return filename;
 }
@@ -198,22 +179,9 @@ export async function createZip(
   // Choose between native API (Chromium) and StreamSaver.js (Firefox)
   const useNative = hasNativeFileSystemAccess();
 
-  let writable: {
-    stream: WritableStream<Uint8Array>;
-    filename: string;
-    close: () => Promise<void>;
-    abort: () => Promise<void>;
-  };
-
-  if (useNative) {
-    // Use native File System Access API (Chromium)
-    // This provides a save file picker for better UX
-    writable = await createNativeWritableStream();
-  } else {
-    // Use StreamSaver.js for Firefox
-    // Downloads directly to the Downloads folder
-    writable = createStreamSaverWritableStream();
-  }
+  const writable = useNative
+    ? await createNativeWritableStream()
+    : createStreamSaverWritableStream();
 
   const writer = writable.stream.getWriter();
   const total = files.length;
@@ -279,14 +247,12 @@ export async function createZip(
     // Flush any remaining data (ZIP footer)
     await flushPending();
 
-    // Close the writer and stream
-    writer.releaseLock();
-    await writable.close();
+    // Close the writer (also closes the underlying stream)
+    await writer.close();
   } catch (e) {
-    // Ensure stream is closed on error to prevent resource leak
+    // Ensure stream is aborted on error to prevent resource leak
     try {
-      writer.releaseLock();
-      await writable.abort();
+      await writer.abort();
     } catch {
       // Ignore abort errors
     }

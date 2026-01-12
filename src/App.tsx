@@ -21,6 +21,14 @@ import { isSafari } from "./utils/zip";
 // Safari warning threshold: 500MB
 const SAFARI_SIZE_WARNING_THRESHOLD = 500 * 1024 * 1024;
 
+// Format bytes to human readable string
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
 export default function App() {
   const {
     status,
@@ -41,14 +49,6 @@ export default function App() {
   const showSafariWarning = useMemo(() => {
     return isSafari() && totalSizeBytes > SAFARI_SIZE_WARNING_THRESHOLD;
   }, [totalSizeBytes]);
-
-  // Format bytes to human readable string
-  const formatSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-  };
 
   return (
     <div className="h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex flex-col overflow-auto relative">

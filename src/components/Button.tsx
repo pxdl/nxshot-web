@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "ghost";
+export type ButtonVariant = "primary" | "secondary" | "ghost";
 
 interface ButtonProps {
   children: ReactNode;
@@ -10,10 +10,10 @@ interface ButtonProps {
   icon?: ReactNode;
 }
 
-const baseStyles =
+export const buttonBaseStyles =
   "w-full py-4 px-6 font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
 
-const variantStyles: Record<ButtonVariant, string> = {
+export const buttonVariantStyles: Record<ButtonVariant, string> = {
   primary:
     "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg shadow-red-200 dark:shadow-red-900/30 hover:shadow-xl disabled:hover:shadow-lg",
   secondary:
@@ -34,7 +34,7 @@ export function Button({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`${baseStyles} ${variantStyles[variant]}`}
+      className={`${buttonBaseStyles} ${buttonVariantStyles[variant]}`}
     >
       <span className="flex items-center justify-center gap-3">
         {icon}
