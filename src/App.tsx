@@ -161,7 +161,7 @@ export default function App() {
                         <div className="text-sm text-amber-700 dark:text-amber-400">
                           <p className="font-medium">Large collection detected ({formatSize(totalSizeBytes)})</p>
                           <p className="mt-1">
-                            Safari may struggle with collections this size. For best results, use Chrome or Firefox.
+                            Safari may struggle with collections this size. Downloads may appear as 0KB or empty. For best results, use Chrome or Firefox.
                           </p>
                         </div>
                       </div>
