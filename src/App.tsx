@@ -1,8 +1,10 @@
+import { useMemo } from "react";
 import {
   CameraIcon,
   CheckCircleIcon,
   FolderIcon,
   ExclamationCircleIcon,
+  ExclamationTriangleIcon,
   ArrowDownTrayIcon,
   PhotoIcon,
 } from "@heroicons/react/24/solid";
@@ -14,6 +16,10 @@ import { FolderStructureGuide } from "./components/FolderStructureGuide";
 import { Spinner } from "./components/Spinner";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { useScreenshotProcessor } from "./hooks";
+import { isSafari } from "./utils/zip";
+
+// Safari warning threshold: 500MB
+const SAFARI_SIZE_WARNING_THRESHOLD = 500 * 1024 * 1024;
 
 export default function App() {
   const {
@@ -26,9 +32,23 @@ export default function App() {
     savedFilename,
     scanCount,
     progress,
+    totalSizeBytes,
     processFiles,
     downloadZip,
   } = useScreenshotProcessor();
+
+  // Check if we should show Safari large file warning
+  const showSafariWarning = useMemo(() => {
+    return isSafari() && totalSizeBytes > SAFARI_SIZE_WARNING_THRESHOLD;
+  }, [totalSizeBytes]);
+
+  // Format bytes to human readable string
+  const formatSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
 
   return (
     <div className="h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex flex-col overflow-auto relative">
@@ -127,6 +147,24 @@ export default function App() {
                       <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">
                         {Math.round(progress)}% complete
                       </p>
+                    </div>
+                  )}
+
+                  {/* Safari Warning for Large Files */}
+                  {status === "ready" && showSafariWarning && (
+                    <div
+                      role="alert"
+                      className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800"
+                    >
+                      <div className="flex items-start gap-3">
+                        <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                        <div className="text-sm text-amber-700 dark:text-amber-400">
+                          <p className="font-medium">Large collection detected ({formatSize(totalSizeBytes)})</p>
+                          <p className="mt-1">
+                            Safari may struggle with collections this size. For best results, use Chrome or Firefox.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
 

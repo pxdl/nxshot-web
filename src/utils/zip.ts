@@ -36,7 +36,8 @@ function hasNativeFileSystemAccess(): boolean {
  * Detect Safari browser.
  * Safari has issues with StreamSaver.js, so we need to use Blob download instead.
  */
-function isSafari(): boolean {
+export function isSafari(): boolean {
+  if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent;
   return ua.includes("Safari") && !ua.includes("Chrome") && !ua.includes("Chromium");
 }

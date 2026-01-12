@@ -167,9 +167,13 @@ export function useScreenshotProcessor() {
   const progress =
     state.totalFiles > 0 ? (state.currentFileIndex / state.totalFiles) * 100 : 0;
 
+  // Calculate total size of all files in bytes
+  const totalSizeBytes = state.files.reduce((sum, file) => sum + file.size, 0);
+
   return {
     ...state,
     progress,
+    totalSizeBytes,
     processFiles,
     downloadZip,
     reset,
