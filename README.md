@@ -14,9 +14,13 @@ Works on all modern browsers:
 - Safari 15.4+
 - Opera 72+
 
-**Note:** On Chromium browsers (Chrome, Edge, Opera), you get a save file picker to choose where to save the ZIP. On Firefox and Safari, the ZIP downloads directly to your Downloads folder.
+| Browser | Save Location | Large Files (2GB+) |
+|---------|---------------|-------------------|
+| Chrome, Edge, Opera | Save picker | Streaming (efficient) |
+| Firefox | Downloads folder | Streaming (efficient) |
+| Safari | Downloads folder | Buffered (may fail for very large collections) |
 
-The app uses streaming to efficiently handle large collections (2GB+) without running out of memory.
+Chrome/Edge/Firefox use streaming to efficiently handle large collections without running out of memory. Safari uses a buffered approach which works reliably for most collections but may struggle with very large ones.
 
 ## Usage
 

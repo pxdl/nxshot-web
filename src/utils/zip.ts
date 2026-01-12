@@ -33,6 +33,15 @@ function hasNativeFileSystemAccess(): boolean {
 }
 
 /**
+ * Detect Safari browser.
+ * Safari has issues with StreamSaver.js, so we need to use Blob download instead.
+ */
+function isSafari(): boolean {
+  const ua = navigator.userAgent;
+  return ua.includes("Safari") && !ua.includes("Chrome") && !ua.includes("Chromium");
+}
+
+/**
  * Create a writable stream using native File System Access API.
  * Returns the stream and the filename chosen by the user.
  */
@@ -67,7 +76,7 @@ async function createNativeWritableStream(): Promise<{
 }
 
 /**
- * Create a writable stream using StreamSaver.js for cross-browser support.
+ * Create a writable stream using StreamSaver.js for Firefox.
  */
 function createStreamSaverWritableStream(): {
   stream: WritableStream<Uint8Array>;
@@ -93,9 +102,86 @@ function createStreamSaverWritableStream(): {
 }
 
 /**
+ * Create ZIP using Blob download (for Safari).
+ * This buffers the entire ZIP in memory before downloading.
+ * Works reliably but may fail for very large collections (2GB+).
+ */
+async function createZipWithBlobDownload(
+  files: File[],
+  parseFilename: (filename: string) => Screenshot,
+  onProgress?: ProgressCallback
+): Promise<string> {
+  const filename = DEFAULTS.ZIP_FILENAME;
+  const total = files.length;
+
+  // Collect all chunks in memory
+  const chunks: Uint8Array[] = [];
+  let error: Error | null = null;
+
+  const zip = new Zip((err, chunk, _final) => {
+    if (err) {
+      error = err;
+      return;
+    }
+    if (chunk && chunk.length > 0) {
+      chunks.push(chunk);
+    }
+  });
+
+  // Process files
+  for (let i = 0; i < files.length; i++) {
+    if (error) throw error;
+
+    const file = files[i];
+    if (!file) continue;
+
+    const screenshot = parseFilename(file.name);
+    const arrayBuffer = await file.arrayBuffer();
+    const data = new Uint8Array(arrayBuffer);
+
+    const zipPath = `${screenshot.gameName}/${file.name}`;
+    const fileDate = screenshotToDate(screenshot);
+
+    // Create file entry with date (no compression for images/videos)
+    const zipFile = new ZipPassThrough(zipPath);
+    zipFile.mtime = fileDate;
+
+    zip.add(zipFile);
+    zipFile.push(data, true);
+
+    onProgress?.({ current: i + 1, total, phase: "processing" });
+  }
+
+  if (error) throw error;
+
+  // Finalize ZIP
+  onProgress?.({ current: total, total, phase: "finalizing" });
+  zip.end();
+
+  if (error) throw error;
+
+  // Create Blob and trigger download
+  const blob = new Blob(chunks as BlobPart[], { type: "application/zip" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  // Clean up after a short delay to ensure download starts
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  return filename;
+}
+
+/**
  * Create and save a ZIP file with proper dates using fflate.
- * Uses native File System Access API when available, falls back to StreamSaver.js.
- * Streams directly to disk to handle large files (2GB+).
+ * - Chromium: Uses native File System Access API (save picker UX)
+ * - Firefox: Uses StreamSaver.js (streaming to Downloads)
+ * - Safari: Uses Blob download (buffered in memory)
  * Returns the saved filename.
  */
 export async function createZip(
@@ -103,7 +189,12 @@ export async function createZip(
   parseFilename: (filename: string) => Screenshot,
   onProgress?: ProgressCallback
 ): Promise<string> {
-  // Choose the appropriate streaming method
+  // Safari doesn't support StreamSaver.js properly, use Blob download
+  if (isSafari()) {
+    return createZipWithBlobDownload(files, parseFilename, onProgress);
+  }
+
+  // Choose between native API (Chromium) and StreamSaver.js (Firefox)
   const useNative = hasNativeFileSystemAccess();
 
   let writable: {
@@ -118,7 +209,7 @@ export async function createZip(
     // This provides a save file picker for better UX
     writable = await createNativeWritableStream();
   } else {
-    // Use StreamSaver.js for Firefox/Safari
+    // Use StreamSaver.js for Firefox
     // Downloads directly to the Downloads folder
     writable = createStreamSaverWritableStream();
   }
