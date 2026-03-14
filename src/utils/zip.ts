@@ -42,6 +42,55 @@ export function isSafari(): boolean {
   return ua.includes("Safari") && !ua.includes("Chrome") && !ua.includes("Chromium");
 }
 
+/**
+ * Ensure a zip path is unique by appending a counter suffix if needed.
+ */
+function deduplicatePath(path: string, usedPaths: Set<string>): string {
+  if (!usedPaths.has(path)) {
+    usedPaths.add(path);
+    return path;
+  }
+  // Split on last slash to isolate the filename, so dots in directory names are ignored
+  const lastSlash = path.lastIndexOf("/");
+  const dir = lastSlash >= 0 ? path.substring(0, lastSlash + 1) : "";
+  const filename = lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
+  const dotIdx = filename.lastIndexOf(".");
+  const base = dotIdx >= 0 ? filename.substring(0, dotIdx) : filename;
+  const ext = dotIdx >= 0 ? filename.substring(dotIdx) : "";
+  let counter = 2;
+  let candidate: string;
+  do {
+    candidate = `${dir}${base} (${counter})${ext}`;
+    counter++;
+  } while (usedPaths.has(candidate));
+  usedPaths.add(candidate);
+  return candidate;
+}
+
+/**
+ * Read a file, parse its screenshot metadata, and add it to the zip archive.
+ */
+async function addFileToZip(
+  zip: Zip,
+  file: File,
+  parseFilename: (filename: string) => Screenshot,
+  getPath: (screenshot: Screenshot, filename: string) => string,
+  usedPaths: Set<string>
+): Promise<void> {
+  const screenshot = parseFilename(file.name);
+  const arrayBuffer = await file.arrayBuffer();
+  const data = new Uint8Array(arrayBuffer);
+
+  const zipPath = deduplicatePath(getPath(screenshot, file.name), usedPaths);
+  const fileDate = screenshotToDate(screenshot);
+
+  const zipFile = new ZipPassThrough(zipPath);
+  zipFile.mtime = fileDate;
+
+  zip.add(zipFile);
+  zipFile.push(data, true);
+}
+
 interface WritableStreamResult {
   stream: WritableStream<Uint8Array>;
   filename: string;
@@ -91,6 +140,7 @@ function createStreamSaverWritableStream(): WritableStreamResult {
 async function createZipWithBlobDownload(
   files: File[],
   parseFilename: (filename: string) => Screenshot,
+  getPath: (screenshot: Screenshot, filename: string) => string,
   onProgress?: ProgressCallback
 ): Promise<string> {
   const filename = DEFAULTS.ZIP_FILENAME;
@@ -99,6 +149,7 @@ async function createZipWithBlobDownload(
   // Collect all chunks in memory
   const chunks: Uint8Array[] = [];
   let error: Error | null = null;
+  const usedPaths = new Set<string>();
 
   const zip = new Zip((err, chunk, _final) => {
     if (err) {
@@ -117,19 +168,7 @@ async function createZipWithBlobDownload(
     const file = files[i];
     if (!file) continue;
 
-    const screenshot = parseFilename(file.name);
-    const arrayBuffer = await file.arrayBuffer();
-    const data = new Uint8Array(arrayBuffer);
-
-    const zipPath = `${screenshot.gameName}/${file.name}`;
-    const fileDate = screenshotToDate(screenshot);
-
-    // Create file entry with date (no compression for images/videos)
-    const zipFile = new ZipPassThrough(zipPath);
-    zipFile.mtime = fileDate;
-
-    zip.add(zipFile);
-    zipFile.push(data, true);
+    await addFileToZip(zip, file, parseFilename, getPath, usedPaths);
 
     onProgress?.({ current: i + 1, total, phase: "processing" });
   }
@@ -169,11 +208,12 @@ async function createZipWithBlobDownload(
 export async function createZip(
   files: File[],
   parseFilename: (filename: string) => Screenshot,
+  getPath: (screenshot: Screenshot, filename: string) => string,
   onProgress?: ProgressCallback
 ): Promise<string> {
   // Safari doesn't support StreamSaver.js properly, use Blob download
   if (isSafari()) {
-    return createZipWithBlobDownload(files, parseFilename, onProgress);
+    return createZipWithBlobDownload(files, parseFilename, getPath, onProgress);
   }
 
   // Choose between native API (Chromium) and StreamSaver.js (Firefox)
@@ -189,6 +229,7 @@ export async function createZip(
   // Collect chunks synchronously, flush after each file
   let pendingChunks: Uint8Array[] = [];
   let error: Error | null = null;
+  const usedPaths = new Set<string>();
 
   const zip = new Zip((err, chunk, _final) => {
     if (err) {
@@ -218,19 +259,7 @@ export async function createZip(
       const file = files[i];
       if (!file) continue;
 
-      const screenshot = parseFilename(file.name);
-      const arrayBuffer = await file.arrayBuffer();
-      const data = new Uint8Array(arrayBuffer);
-
-      const zipPath = `${screenshot.gameName}/${file.name}`;
-      const fileDate = screenshotToDate(screenshot);
-
-      // Create file entry with date (no compression for images/videos)
-      const zipFile = new ZipPassThrough(zipPath);
-      zipFile.mtime = fileDate;
-
-      zip.add(zipFile);
-      zipFile.push(data, true); // true = final chunk for this file
+      await addFileToZip(zip, file, parseFilename, getPath, usedPaths);
 
       // Flush after each file to keep memory low
       await flushPending();

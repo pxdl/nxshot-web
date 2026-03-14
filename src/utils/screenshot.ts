@@ -1,5 +1,11 @@
-import type { Screenshot, CaptureIds, GameGroup, ParsedFile } from "../types";
-import { FILENAME, VALIDATION, DEFAULTS } from "../constants";
+import type {
+  Screenshot,
+  CaptureIds,
+  GameGroup,
+  ParsedFile,
+  FolderStructure,
+} from "../types";
+import { FILENAME, VALIDATION, DEFAULTS, MONTH_NAMES } from "../constants";
 
 /**
  * Parse a Nintendo Switch screenshot/video filename into its components.
@@ -68,6 +74,30 @@ export function parseScreenshotFilename(
     captureId,
     gameName: captureIds?.[captureId] ?? DEFAULTS.UNKNOWN_GAME_NAME,
   };
+}
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * Generate the ZIP path for a file based on the selected folder structure.
+ */
+export function getZipPath(
+  screenshot: Screenshot,
+  originalFilename: string,
+  structure: FolderStructure
+): string {
+  switch (structure) {
+    case "by-game":
+      return `${screenshot.gameName}/${originalFilename}`;
+    case "by-date":
+      return `${screenshot.year}/${MONTH_NAMES[screenshot.month]}/${originalFilename}`;
+    case "by-game-date":
+      return `${screenshot.gameName}/${screenshot.year}-${pad2(screenshot.month + 1)}/${originalFilename}`;
+    case "flat-renamed": {
+      const ext = originalFilename.substring(originalFilename.lastIndexOf("."));
+      return `${screenshot.gameName} - ${screenshot.year}-${pad2(screenshot.month + 1)}-${pad2(screenshot.day)} ${pad2(screenshot.hour)}.${pad2(screenshot.minute)}.${pad2(screenshot.second)}${ext}`;
+    }
+  }
 }
 
 /**

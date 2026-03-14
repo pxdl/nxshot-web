@@ -42,6 +42,22 @@ export const VALIDATION = {
   MAX_SECOND: 59,
 } as const;
 
+// Month names for folder-structure formatting
+export const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;
+
 // Default values
 export const DEFAULTS = {
   UNKNOWN_GAME_NAME: "Unknown",
