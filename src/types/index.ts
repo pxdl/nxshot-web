@@ -29,6 +29,12 @@ export interface SourceMetadata {
   sourceUpdatedAt: string | null;
 }
 
+export type FolderStructure =
+  | "by-game"
+  | "by-date"
+  | "by-game-date"
+  | "flat-renamed";
+
 export interface CaptureIdsMetadata {
   totalCount: number;
   generatedAt: string;

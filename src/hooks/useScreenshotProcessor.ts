@@ -3,10 +3,11 @@ import { filterSwitchScreenshots } from "../utils/filesystem";
 import {
   parseScreenshotFilename,
   groupFilesByGame,
+  getZipPath,
 } from "../utils/screenshot";
 import { loadCaptureIds } from "../utils/captureIds";
 import { createZip, type ZipProgress } from "../utils/zip";
-import type { CaptureIds, GameGroup } from "../types";
+import type { CaptureIds, FolderStructure, GameGroup, Screenshot } from "../types";
 
 export type ProcessorStatus =
   | "idle"
@@ -40,6 +41,8 @@ export function useScreenshotProcessor() {
 
   const [gameGroups, setGameGroups] = useState<GameGroup[]>([]);
   const [selectedGames, setSelectedGames] = useState<Set<string>>(new Set());
+  const [folderStructure, setFolderStructure] =
+    useState<FolderStructure>("by-game");
 
   // Track current operation to prevent race conditions
   const currentOperationId = useRef(0);
@@ -175,9 +178,13 @@ export function useScreenshotProcessor() {
       const parseWithCaptureIds = (filename: string) =>
         parseScreenshotFilename(filename, captureIdsRef.current);
 
+      const pathGenerator = (screenshot: Screenshot, originalFilename: string) =>
+        getZipPath(screenshot, originalFilename, folderStructure);
+
       const filename = await createZip(
         filesToExport,
         parseWithCaptureIds,
+        pathGenerator,
         handleProgress
       );
       setState((prev) => ({
@@ -261,6 +268,8 @@ export function useScreenshotProcessor() {
     totalFileCount,
     gameGroups,
     selectedGames,
+    folderStructure,
+    setFolderStructure,
     processFiles,
     downloadZip,
     toggleGame,

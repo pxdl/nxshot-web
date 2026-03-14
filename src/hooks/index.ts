@@ -1,3 +1,4 @@
+export { useClickOutside } from "./useClickOutside";
 export { useTheme } from "./useTheme";
 export { useDropZone } from "./useDropZone";
 export { useScreenshotProcessor } from "./useScreenshotProcessor";

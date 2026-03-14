@@ -13,6 +13,7 @@ import { DatabaseInfo } from "./components/DatabaseInfo";
 import { ErrorAlert } from "./components/ErrorAlert";
 import { FolderInput } from "./components/FolderInput";
 import { FolderStructureGuide } from "./components/FolderStructureGuide";
+import { FolderStructurePicker } from "./components/FolderStructurePicker";
 import { Gallery } from "./components/Gallery";
 import { Spinner } from "./components/Spinner";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -39,6 +40,8 @@ export default function App() {
     selectedFileCount,
     selectedSizeBytes,
     totalFileCount,
+    folderStructure,
+    setFolderStructure,
     processFiles,
     downloadZip,
     toggleGame,
@@ -197,6 +200,13 @@ export default function App() {
               )}
 
               <div className="w-full max-w-md">
+                <FolderStructurePicker
+                  value={folderStructure}
+                  onChange={setFolderStructure}
+                />
+              </div>
+
+              <div className="w-full max-w-md">
                 <Button
                   onClick={downloadZip}
                   variant="primary"
@@ -207,9 +217,6 @@ export default function App() {
                     ? `Download ZIP (${selectedFileCount} files)`
                     : "Select games to download"}
                 </Button>
-                <p className="mt-2.5 text-sm text-stone-400 dark:text-slate-500 text-center">
-                  Organized by game with correct dates
-                </p>
               </div>
 
               <FolderInput
