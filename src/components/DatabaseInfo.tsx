@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { InformationCircleIcon } from "@heroicons/react/24/outline";
+import { useClickOutside } from "../hooks";
 import { loadCaptureIdsMetadata } from "../utils/captureIds";
 import type { CaptureIdsMetadata } from "../types";
 
@@ -36,28 +37,14 @@ export function DatabaseInfo() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [error, setError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const collapse = useCallback(() => setIsExpanded(false), []);
+  useClickOutside(containerRef, isExpanded, collapse);
 
   useEffect(() => {
     loadCaptureIdsMetadata()
       .then(setMetadata)
       .catch(() => setError(true));
   }, []);
-
-  useEffect(() => {
-    if (!isExpanded) return;
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setIsExpanded(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isExpanded]);
 
   if (error || !metadata) {
     return null;

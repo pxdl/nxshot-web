@@ -207,10 +207,12 @@ export default function App() {
                 </div>
               )}
 
-              <FolderStructurePicker
-                value={folderStructure}
-                onChange={setFolderStructure}
-              />
+              <div className="w-full max-w-md">
+                <FolderStructurePicker
+                  value={folderStructure}
+                  onChange={setFolderStructure}
+                />
+              </div>
 
               <div className="w-full max-w-md">
                 <Button
