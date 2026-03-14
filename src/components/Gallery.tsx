@@ -91,21 +91,18 @@ export function Gallery({
         )}
       </div>
 
-      {/* Content */}
-      {tab === "gallery" ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {gameGroups.map((group) => (
-            <GameCard
-              key={group.gameName}
-              group={group}
-              selected={selectedGames.has(group.gameName)}
-              onToggle={() => onToggleGame(group.gameName)}
-            />
-          ))}
-        </div>
-      ) : (
-        <CollectionStats gameGroups={gameGroups} />
-      )}
+      {/* Content — gallery grid stays mounted to preserve thumbnail cache */}
+      <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 ${tab !== "gallery" ? "hidden" : ""}`}>
+        {gameGroups.map((group) => (
+          <GameCard
+            key={group.gameName}
+            group={group}
+            selected={selectedGames.has(group.gameName)}
+            onToggle={() => onToggleGame(group.gameName)}
+          />
+        ))}
+      </div>
+      {tab === "stats" && <CollectionStats gameGroups={gameGroups} />}
     </div>
   );
 }

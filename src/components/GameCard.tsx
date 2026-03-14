@@ -4,6 +4,21 @@ import type { GameGroup } from "../types";
 import { IMAGE_EXT, VIDEO_EXT } from "../constants";
 
 const SLIDESHOW_INTERVAL = 1500;
+const VIDEO_PREVIEW_DURATION = 5000;
+const CROSSFADE_MS = 150;
+const SUPPORTS_RVFC =
+  typeof HTMLVideoElement !== "undefined" &&
+  "requestVideoFrameCallback" in HTMLVideoElement.prototype;
+
+let _snapshotCanvas: HTMLCanvasElement | null = null;
+function snapshotVideoFrame(video: HTMLVideoElement): string | null {
+  if (!video.videoWidth) return null;
+  if (!_snapshotCanvas) _snapshotCanvas = document.createElement("canvas");
+  _snapshotCanvas.width = video.videoWidth;
+  _snapshotCanvas.height = video.videoHeight;
+  _snapshotCanvas.getContext("2d")!.drawImage(video, 0, 0);
+  return _snapshotCanvas.toDataURL("image/jpeg", 0.85);
+}
 
 interface GameCardProps {
   group: GameGroup;
@@ -95,15 +110,25 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle }: Ga
   const [isHovering, setIsHovering] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
   const [slideUrl, setSlideUrl] = useState<string | null>(null);
+  const [slideLoaded, setSlideLoaded] = useState(false);
+  const [prevSnapshotUrl, setPrevSnapshotUrl] = useState<string | null>(null);
   const slideUrlRef = useRef<string | null>(null);
+  const prevBlobUrlRef = useRef<string | null>(null);
+  const currentIsVideoRef = useRef(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const fileCount = group.files.length;
 
-  const revokeSlideUrl = useCallback(() => {
+  const revokeAll = useCallback(() => {
     if (slideUrlRef.current) {
       URL.revokeObjectURL(slideUrlRef.current);
       slideUrlRef.current = null;
+    }
+    if (prevBlobUrlRef.current) {
+      URL.revokeObjectURL(prevBlobUrlRef.current);
+      prevBlobUrlRef.current = null;
     }
   }, []);
 
@@ -113,10 +138,12 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle }: Ga
 
   useEffect(() => {
     if (!isHovering || fileCount === 0) {
-      revokeSlideUrl();
+      revokeAll();
       setSlideUrl(null);
+      setPrevSnapshotUrl(null);
       setSlideIndex(0);
       clearTimeout(timerRef.current);
+      clearTimeout(fadeTimerRef.current);
       return;
     }
 
@@ -124,30 +151,82 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle }: Ga
     if (!file) return;
     const isVideo = file.file.name.endsWith(VIDEO_EXT);
 
-    revokeSlideUrl();
+    // Snapshot outgoing slide to hold it visible during the transition
+    if (prevBlobUrlRef.current) {
+      URL.revokeObjectURL(prevBlobUrlRef.current);
+      prevBlobUrlRef.current = null;
+    }
+    if (slideUrlRef.current) {
+      if (currentIsVideoRef.current && videoRef.current) {
+        // Capture the video's displayed frame — renders instantly as <img>
+        setPrevSnapshotUrl(snapshotVideoFrame(videoRef.current));
+        URL.revokeObjectURL(slideUrlRef.current);
+      } else {
+        // Outgoing is an image — reuse its blob URL
+        prevBlobUrlRef.current = slideUrlRef.current;
+        setPrevSnapshotUrl(slideUrlRef.current);
+      }
+    }
+
     const url = URL.createObjectURL(file.file);
     slideUrlRef.current = url;
+    currentIsVideoRef.current = isVideo;
+    setSlideLoaded(false);
     setSlideUrl(url);
 
-    if (!isVideo && fileCount > 1) {
-      timerRef.current = setTimeout(advanceSlide, SLIDESHOW_INTERVAL);
+    if (fileCount > 1) {
+      timerRef.current = setTimeout(advanceSlide, isVideo ? VIDEO_PREVIEW_DURATION : SLIDESHOW_INTERVAL);
     }
 
     return () => {
       clearTimeout(timerRef.current);
-      revokeSlideUrl();
     };
-  }, [isHovering, slideIndex, group.files, fileCount, revokeSlideUrl, advanceSlide]);
+  }, [isHovering, slideIndex, group.files, fileCount, revokeAll, advanceSlide]);
+
+  // Final cleanup on unmount (the main effect cleanup only clears the timer
+  // so that outgoing slide URLs survive between transitions)
+  useEffect(() => {
+    return () => {
+      clearTimeout(fadeTimerRef.current);
+      revokeAll();
+    };
+  }, [revokeAll]);
+
+  const handleSlideReady = useCallback(() => {
+    setSlideLoaded(true);
+    // Keep snapshot visible during the CSS crossfade, then clean up
+    clearTimeout(fadeTimerRef.current);
+    const blobUrl = prevBlobUrlRef.current;
+    prevBlobUrlRef.current = null;
+    fadeTimerRef.current = setTimeout(() => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      setPrevSnapshotUrl(null);
+    }, CROSSFADE_MS);
+  }, []);
+
+  const handleVideoRef = useCallback(
+    (el: HTMLVideoElement | null) => {
+      videoRef.current = el;
+      if (el && SUPPORTS_RVFC) {
+        el.requestVideoFrameCallback(handleSlideReady);
+      }
+    },
+    [handleSlideReady],
+  );
 
   const handleVideoEnded = useCallback(() => {
-    if (fileCount > 1) advanceSlide();
+    if (fileCount > 1) {
+      clearTimeout(timerRef.current);
+      advanceSlide();
+    }
   }, [fileCount, advanceSlide]);
 
   const handleMouseEnter = useCallback(() => setIsHovering(true), []);
   const handleMouseLeave = useCallback(() => setIsHovering(false), []);
 
-  const slideIsVideo = slideUrl != null && group.files[slideIndex]?.file.name.endsWith(VIDEO_EXT);
-  const mediaClass = "w-full h-full object-cover absolute inset-0 z-[1]";
+  const slideIsVideo = slideUrl != null && currentIsVideoRef.current;
+  const mediaClass = `w-full h-full object-cover absolute inset-0 z-[1] ${prevSnapshotUrl ? "transition-opacity duration-150" : ""} ${slideLoaded ? "opacity-100" : "opacity-0"}`;
+  const prevMediaClass = "w-full h-full object-cover absolute inset-0 z-[1] pointer-events-none";
 
   return (
     <button
@@ -163,17 +242,24 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle }: Ga
     >
       {/* Thumbnail / Slideshow */}
       <div className="aspect-video bg-stone-100 dark:bg-slate-800/80 relative overflow-hidden">
-        {/* Slideshow layer (on hover) */}
+        {/* Previous slide snapshot (holds during transition to prevent flash) */}
+        {isHovering && prevSnapshotUrl && (
+          <img src={prevSnapshotUrl} alt="" className={prevMediaClass} />
+        )}
+
+        {/* Current slide */}
         {isHovering && slideUrl && (
           slideIsVideo ? (
             <video
               key={slideUrl}
+              ref={handleVideoRef}
               src={slideUrl}
               className={mediaClass}
               autoPlay
               muted
               playsInline
               onEnded={handleVideoEnded}
+              onLoadedData={SUPPORTS_RVFC ? undefined : handleSlideReady}
             />
           ) : (
             <img
@@ -181,6 +267,7 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle }: Ga
               src={slideUrl}
               alt=""
               className={mediaClass}
+              onLoad={handleSlideReady}
             />
           )
         )}

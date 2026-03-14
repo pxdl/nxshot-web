@@ -163,11 +163,11 @@ export default function App() {
           </div>
         )}
 
-        {/* Gallery State */}
-        {isGalleryView && (
+        {/* Gallery State — kept mounted to preserve thumbnail cache */}
+        {gameGroups.length > 0 && (
           <div
-            className="w-full max-w-6xl animate-fade-up"
-            style={{ animationDelay: "0.1s" }}
+            className={`w-full max-w-6xl ${isGalleryView ? "animate-fade-up" : "hidden"}`}
+            style={isGalleryView ? { animationDelay: "0.1s" } : undefined}
           >
             {error && <ErrorAlert message={error} className="mb-4" />}
 
