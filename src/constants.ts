@@ -42,7 +42,13 @@ export const VALIDATION = {
   MAX_SECOND: 59,
 } as const;
 
-// Month names for folder-structure formatting
+// Short month names (0-indexed, matching JS Date months)
+export const SHORT_MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+] as const;
+
+// Full month names for folder-structure formatting
 export const MONTH_NAMES = [
   "January",
   "February",

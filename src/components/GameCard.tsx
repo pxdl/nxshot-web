@@ -1,14 +1,17 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckIcon, VideoCameraIcon } from "@heroicons/react/24/solid";
+import { CheckIcon, VideoCameraIcon, TrophyIcon } from "@heroicons/react/24/solid";
 import type { GameGroup } from "../types";
-import { IMAGE_EXT, VIDEO_EXT } from "../constants";
+import { IMAGE_EXT, VIDEO_EXT, SHORT_MONTH_NAMES } from "../constants";
 
 const SLIDESHOW_INTERVAL = 1500;
 const VIDEO_PREVIEW_DURATION = 5000;
 const CROSSFADE_MS = 150;
+const MAX_STAGGER_INDEX = 15;
+const STAGGER_DELAY_S = 0.04;
 const SUPPORTS_RVFC =
   typeof HTMLVideoElement !== "undefined" &&
   "requestVideoFrameCallback" in HTMLVideoElement.prototype;
+
 
 let _snapshotCanvas: HTMLCanvasElement | null = null;
 function snapshotVideoFrame(video: HTMLVideoElement): string | null {
@@ -24,9 +27,11 @@ interface GameCardProps {
   group: GameGroup;
   selected: boolean;
   onToggle: () => void;
+  index: number;
+  isTopGame: boolean;
 }
 
-export const GameCard = memo(function GameCard({ group, selected, onToggle }: GameCardProps) {
+export const GameCard = memo(function GameCard({ group, selected, onToggle, index, isTopGame }: GameCardProps) {
   const { thumbnailSource, imageCount, videoCount } = useMemo(() => {
     let thumbnail: { file: File; type: "image" | "video" } | null = null;
     let images = 0;
@@ -42,6 +47,18 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle }: Ga
       }
     }
     return { thumbnailSource: thumbnail, imageCount: images, videoCount: videos };
+  }, [group.files]);
+
+  const latestDate = useMemo(() => {
+    let latest: { year: number; month: number } | null = null;
+    for (const f of group.files) {
+      const s = f.screenshot;
+      if (!latest || s.year > latest.year || (s.year === latest.year && s.month > latest.month)) {
+        latest = { year: s.year, month: s.month };
+      }
+    }
+    if (!latest) return null;
+    return `${SHORT_MONTH_NAMES[latest.month]} ${latest.year}`;
   }, [group.files]);
 
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
@@ -228,20 +245,30 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle }: Ga
   const mediaClass = `w-full h-full object-cover absolute inset-0 z-[1] ${prevSnapshotUrl ? "transition-opacity duration-150" : ""} ${slideLoaded ? "opacity-100" : "opacity-0"}`;
   const prevMediaClass = "w-full h-full object-cover absolute inset-0 z-[1] pointer-events-none";
 
+  const staggerDelay = Math.min(index * STAGGER_DELAY_S, MAX_STAGGER_INDEX * STAGGER_DELAY_S);
+
   return (
     <button
       type="button"
       onClick={onToggle}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`relative rounded-xl overflow-hidden text-left transition-all duration-200 cursor-pointer bg-white dark:bg-[#161b22] hover:shadow-lg focus-visible:outline-2 focus-visible:outline-nx active:scale-[0.98] ${
+      className={`relative rounded-xl overflow-hidden text-left transition-all duration-200 cursor-pointer bg-white dark:bg-[#161b22] focus-visible:outline-2 focus-visible:outline-nx active:scale-[0.98] animate-fade-up ${
         selected
-          ? "ring-2 ring-nx shadow-md shadow-nx/10"
-          : "ring-1 ring-stone-200/80 dark:ring-slate-700/50 opacity-50 hover:opacity-75"
+          ? "ring-2 ring-nx shadow-lg shadow-nx/15 hover:shadow-xl hover:shadow-nx/20 hover:-translate-y-0.5"
+          : "ring-1 ring-stone-200/80 dark:ring-slate-700/50 hover:ring-stone-300 dark:hover:ring-slate-600 hover:shadow-lg hover:-translate-y-0.5"
       }`}
+      style={{ animationDelay: `${staggerDelay}s` }}
     >
+      {/* Top game gradient accent */}
+      {isTopGame && (
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 z-[3]" />
+      )}
+
       {/* Thumbnail / Slideshow */}
-      <div className="aspect-video bg-stone-100 dark:bg-slate-800/80 relative overflow-hidden">
+      <div className={`aspect-video bg-stone-100 dark:bg-slate-800/80 relative overflow-hidden transition-[filter] duration-300 ${
+        selected ? "" : "grayscale-[0.5] brightness-[0.8]"
+      }`}>
         {/* Previous slide snapshot (holds during transition to prevent flash) */}
         {isHovering && prevSnapshotUrl && (
           <img src={prevSnapshotUrl} alt="" className={prevMediaClass} />
@@ -281,22 +308,35 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle }: Ga
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <VideoCameraIcon className="w-8 h-8 text-stone-300 dark:text-slate-600" />
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200 dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-700">
+            <div className="flex flex-col items-center gap-1.5 px-3">
+              <VideoCameraIcon className="w-6 h-6 text-stone-300 dark:text-slate-600" />
+              <p className="text-[10px] font-display font-semibold text-stone-300 dark:text-slate-600 text-center leading-tight truncate max-w-full">
+                {group.gameName}
+              </p>
+            </div>
           </div>
         )}
 
         {/* Slideshow dots (up to 12 files) */}
         {isHovering && fileCount > 1 && fileCount <= 12 && (
-          <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1 z-[2]">
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-[2] bg-black/30 backdrop-blur-sm rounded-full px-2 py-1">
             {group.files.map((_, i) => (
               <div
                 key={i}
-                className={`w-1 h-1 rounded-full transition-colors ${
+                className={`w-1.5 h-1.5 rounded-full transition-colors ${
                   i === slideIndex ? "bg-white" : "bg-white/40"
                 }`}
               />
             ))}
+          </div>
+        )}
+
+        {/* Top game badge */}
+        {isTopGame && (
+          <div className="absolute top-2 left-2 z-[2] flex items-center gap-1 bg-amber-400/90 backdrop-blur-sm text-amber-900 rounded-md px-1.5 py-0.5 shadow-sm">
+            <TrophyIcon className="w-3 h-3" />
+            <span className="text-[10px] font-bold uppercase tracking-wide">#1</span>
           </div>
         )}
 
@@ -308,7 +348,7 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle }: Ga
               : "bg-white/80 dark:bg-[#161b22]/80 border border-stone-300 dark:border-slate-600"
           }`}
         >
-          {selected && <CheckIcon className="w-3.5 h-3.5" />}
+          {selected && <CheckIcon className="w-3.5 h-3.5 animate-check-bounce" />}
         </div>
       </div>
 
@@ -320,13 +360,20 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle }: Ga
         >
           {group.gameName}
         </p>
-        <p className="text-xs text-stone-400 dark:text-slate-500 mt-0.5">
-          {imageCount > 0 &&
-            `${imageCount} screenshot${imageCount !== 1 ? "s" : ""}`}
-          {imageCount > 0 && videoCount > 0 && " · "}
-          {videoCount > 0 &&
-            `${videoCount} video${videoCount !== 1 ? "s" : ""}`}
-        </p>
+        <div className="flex items-center justify-between mt-0.5">
+          <p className="text-xs text-stone-400 dark:text-slate-500">
+            {imageCount > 0 &&
+              `${imageCount} screenshot${imageCount !== 1 ? "s" : ""}`}
+            {imageCount > 0 && videoCount > 0 && " \u00b7 "}
+            {videoCount > 0 &&
+              `${videoCount} video${videoCount !== 1 ? "s" : ""}`}
+          </p>
+          {latestDate && (
+            <p className="text-[10px] text-stone-300 dark:text-slate-600 font-mono tabular-nums shrink-0 ml-2">
+              {latestDate}
+            </p>
+          )}
+        </div>
       </div>
     </button>
   );
