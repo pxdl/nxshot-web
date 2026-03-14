@@ -1,16 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { InformationCircleIcon } from "@heroicons/react/24/outline";
 import { loadCaptureIdsMetadata } from "../utils/captureIds";
+import { formatDate } from "../utils/format";
 import type { CaptureIdsMetadata } from "../types";
-
-function formatDate(isoString: string): string {
-  const date = new Date(isoString);
-  return date.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 function formatNumber(num: number): string {
   return num.toLocaleString();
@@ -84,7 +76,7 @@ export function DatabaseInfo() {
               <div className="flex justify-between">
                 <dt>Generated</dt>
                 <dd className="font-medium text-stone-800 dark:text-slate-200">
-                  {formatDate(metadata.generatedAt)}
+                  {formatDate(new Date(metadata.generatedAt))}
                 </dd>
               </div>
             </dl>
@@ -117,7 +109,7 @@ export function DatabaseInfo() {
                       <span>Updated on</span>
                       <span>
                         {source.sourceUpdatedAt
-                          ? formatDate(source.sourceUpdatedAt)
+                          ? formatDate(new Date(source.sourceUpdatedAt))
                           : "Unknown"}
                       </span>
                     </div>
