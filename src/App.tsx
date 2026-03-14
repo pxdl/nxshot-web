@@ -17,20 +17,12 @@ import { Gallery } from "./components/Gallery";
 import { Spinner } from "./components/Spinner";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { useScreenshotProcessor, useDropZone } from "./hooks";
+import { formatSize } from "./utils/format";
 import { isSafari } from "./utils/zip";
 
 // Safari warning threshold: 500MB
 const SAFARI_SIZE_WARNING_THRESHOLD = 500 * 1024 * 1024;
 const IS_SAFARI = isSafari();
-
-// Format bytes to human readable string
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
 
 export default function App() {
   const {
