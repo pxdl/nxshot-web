@@ -8,6 +8,7 @@ function makeParsedFile(
   month: number,
   day: number,
   size: number,
+  hour = 12,
 ): ParsedFile {
   return {
     file: { name, size } as File,
@@ -15,7 +16,7 @@ function makeParsedFile(
       year,
       month,
       day,
-      hour: 12,
+      hour,
       minute: 0,
       second: 0,
       captureId: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1",
@@ -39,6 +40,11 @@ describe("computeStats", () => {
     expect(stats.busiestMonth).toBeNull();
     expect(stats.topGame).toBeNull();
     expect(stats.averageCapturesPerGame).toBe(0);
+    expect(stats.hourDistribution).toEqual(new Array(24).fill(0));
+    expect(stats.dayOfWeekDistribution).toEqual(new Array(7).fill(0));
+    expect(stats.funFacts.busiestDay).toBeNull();
+    expect(stats.funFacts.longestGap).toBeNull();
+    expect(stats.funFacts.singleCaptureGames).toBe(0);
   });
 
   it("should compute stats for a single game with images and videos", () => {
@@ -173,5 +179,128 @@ describe("computeStats", () => {
     expect(stats.gameStats[0]!.totalSize).toBe(51_000);
     expect(stats.gameStats[0]!.imageCount).toBe(1);
     expect(stats.gameStats[0]!.videoCount).toBe(1);
+  });
+
+  it("should compute hour distribution", () => {
+    const groups: GameGroup[] = [
+      {
+        gameName: "Game",
+        files: [
+          makeParsedFile("a.jpg", 2023, 0, 1, 100, 8),
+          makeParsedFile("b.jpg", 2023, 0, 2, 100, 8),
+          makeParsedFile("c.jpg", 2023, 0, 3, 100, 14),
+          makeParsedFile("d.jpg", 2023, 0, 4, 100, 22),
+          makeParsedFile("e.jpg", 2023, 0, 5, 100, 3),
+        ],
+      },
+    ];
+
+    const stats = computeStats(groups);
+
+    expect(stats.hourDistribution[8]).toBe(2);
+    expect(stats.hourDistribution[14]).toBe(1);
+    expect(stats.hourDistribution[22]).toBe(1);
+    expect(stats.hourDistribution[3]).toBe(1);
+    expect(stats.hourDistribution[0]).toBe(0);
+  });
+
+  it("should compute day-of-week distribution", () => {
+    // 2023-01-02 is a Monday (month 0 = January)
+    const groups: GameGroup[] = [
+      {
+        gameName: "Game",
+        files: [
+          makeParsedFile("a.jpg", 2023, 0, 2, 100), // Mon
+          makeParsedFile("b.jpg", 2023, 0, 3, 100), // Tue
+          makeParsedFile("c.jpg", 2023, 0, 7, 100), // Sat
+          makeParsedFile("d.jpg", 2023, 0, 8, 100), // Sun
+          makeParsedFile("e.jpg", 2023, 0, 9, 100), // Mon
+        ],
+      },
+    ];
+
+    const stats = computeStats(groups);
+
+    // getDay(): 0=Sun, 1=Mon, 2=Tue, ...
+    expect(stats.dayOfWeekDistribution[0]).toBe(1); // Sun
+    expect(stats.dayOfWeekDistribution[1]).toBe(2); // Mon
+    expect(stats.dayOfWeekDistribution[2]).toBe(1); // Tue
+    expect(stats.dayOfWeekDistribution[6]).toBe(1); // Sat
+  });
+
+  it("should find the busiest day", () => {
+    const groups: GameGroup[] = [
+      {
+        gameName: "Game",
+        files: [
+          makeParsedFile("a.jpg", 2023, 0, 15, 100),
+          makeParsedFile("b.jpg", 2023, 0, 15, 100),
+          makeParsedFile("c.jpg", 2023, 0, 15, 100),
+          makeParsedFile("d.jpg", 2023, 0, 16, 100),
+        ],
+      },
+    ];
+
+    const stats = computeStats(groups);
+
+    expect(stats.funFacts.busiestDay?.count).toBe(3);
+    expect(stats.funFacts.busiestDay?.date).toEqual(new Date(2023, 0, 15));
+  });
+
+  it("should find the longest gap between captures", () => {
+    const groups: GameGroup[] = [
+      {
+        gameName: "Game",
+        files: [
+          makeParsedFile("a.jpg", 2023, 0, 1, 100),
+          makeParsedFile("b.jpg", 2023, 0, 5, 100),  // 4 day gap
+          makeParsedFile("c.jpg", 2023, 3, 1, 100),  // ~86 day gap
+        ],
+      },
+    ];
+
+    const stats = computeStats(groups);
+
+    expect(stats.funFacts.longestGap).not.toBeNull();
+    expect(stats.funFacts.longestGap!.from).toEqual(new Date(2023, 0, 5));
+    expect(stats.funFacts.longestGap!.to).toEqual(new Date(2023, 3, 1));
+    expect(stats.funFacts.longestGap!.days).toBeGreaterThan(80);
+  });
+
+  it("should count single-capture games", () => {
+    const groups: GameGroup[] = [
+      {
+        gameName: "Game A",
+        files: [makeParsedFile("a.jpg", 2023, 0, 1, 100)],
+      },
+      {
+        gameName: "Game B",
+        files: [
+          makeParsedFile("b1.jpg", 2023, 0, 1, 100),
+          makeParsedFile("b2.jpg", 2023, 0, 2, 100),
+        ],
+      },
+      {
+        gameName: "Game C",
+        files: [makeParsedFile("c.jpg", 2023, 0, 1, 100)],
+      },
+    ];
+
+    const stats = computeStats(groups);
+
+    expect(stats.funFacts.singleCaptureGames).toBe(2);
+  });
+
+  it("should return null for longestGap with a single capture day", () => {
+    const groups: GameGroup[] = [
+      {
+        gameName: "Game",
+        files: [makeParsedFile("a.jpg", 2023, 0, 1, 100)],
+      },
+    ];
+
+    const stats = computeStats(groups);
+
+    expect(stats.funFacts.longestGap).toBeNull();
   });
 });

@@ -16,6 +16,12 @@ export interface MonthBucket {
   count: number;
 }
 
+export interface FunFacts {
+  busiestDay: { date: Date; count: number } | null;
+  longestGap: { days: number; from: Date; to: Date } | null;
+  singleCaptureGames: number;
+}
+
 export interface CollectionStats {
   totalFiles: number;
   totalImages: number;
@@ -29,7 +35,12 @@ export interface CollectionStats {
   busiestMonth: MonthBucket | null;
   topGame: GameStat | null;
   averageCapturesPerGame: number;
+  hourDistribution: number[];
+  dayOfWeekDistribution: number[];
+  funFacts: FunFacts;
 }
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 const MONTH_NAMES = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -48,6 +59,8 @@ export function computeStats(gameGroups: GameGroup[]): CollectionStats {
 
   const gameStats: GameStat[] = [];
   const monthMap = new Map<string, MonthBucket>();
+  const hourDist: number[] = new Array(24).fill(0);
+  const dayMap = new Map<number, { date: Date; count: number }>();
 
   for (const group of gameGroups) {
     let images = 0;
@@ -84,6 +97,15 @@ export function computeStats(gameGroups: GameGroup[]): CollectionStats {
           count: 1,
         });
       }
+
+      hourDist[f.screenshot.hour] = hourDist[f.screenshot.hour]! + 1;
+
+      const dayEntry = dayMap.get(dateKey);
+      if (dayEntry) {
+        dayEntry.count++;
+      } else {
+        dayMap.set(dateKey, { date: new Date(year, month, day), count: 1 });
+      }
     }
 
     totalImages += images;
@@ -113,6 +135,34 @@ export function computeStats(gameGroups: GameGroup[]): CollectionStats {
       ? timeline.reduce((max, m) => (m.count > max.count ? m : max))
       : null;
 
+  // Day-of-week distribution and busiest day from dayMap
+  const dowDist: number[] = new Array(7).fill(0);
+  let busiestDay: { date: Date; count: number } | null = null;
+  for (const entry of dayMap.values()) {
+    const dow = entry.date.getDay();
+    dowDist[dow] = dowDist[dow]! + entry.count;
+    if (!busiestDay || entry.count > busiestDay.count) {
+      busiestDay = entry;
+    }
+  }
+
+  // Longest gap between capture days
+  const sortedDays = Array.from(dayMap.values()).sort(
+    (a, b) => a.date.getTime() - b.date.getTime()
+  );
+  let longestGap: FunFacts["longestGap"] = null;
+  for (let i = 1; i < sortedDays.length; i++) {
+    const days = Math.round(
+      (sortedDays[i]!.date.getTime() - sortedDays[i - 1]!.date.getTime()) /
+        MS_PER_DAY
+    );
+    if (!longestGap || days > longestGap.days) {
+      longestGap = { days, from: sortedDays[i - 1]!.date, to: sortedDays[i]!.date };
+    }
+  }
+
+  const singleCaptureGames = gameStats.filter((g) => g.totalFiles === 1).length;
+
   return {
     totalFiles,
     totalImages,
@@ -127,5 +177,8 @@ export function computeStats(gameGroups: GameGroup[]): CollectionStats {
     topGame: gameStats[0] ?? null,
     averageCapturesPerGame:
       gameGroups.length > 0 ? Math.round(totalFiles / gameGroups.length) : 0,
+    hourDistribution: hourDist,
+    dayOfWeekDistribution: dowDist,
+    funFacts: { busiestDay, longestGap, singleCaptureGames },
   };
 }
