@@ -1,5 +1,5 @@
 import type { GameGroup } from "../types";
-import { IMAGE_EXT, VIDEO_EXT } from "../constants";
+import { IMAGE_EXT, VIDEO_EXT, SHORT_MONTH_NAMES } from "../constants";
 
 export interface GameStat {
   gameName: string;
@@ -42,10 +42,6 @@ export interface CollectionStats {
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-const MONTH_NAMES = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
 
 export function computeStats(gameGroups: GameGroup[]): CollectionStats {
   let totalImages = 0;
@@ -93,7 +89,7 @@ export function computeStats(gameGroups: GameGroup[]): CollectionStats {
         monthMap.set(key, {
           year,
           month,
-          label: `${MONTH_NAMES[month]} ${year}`,
+          label: `${SHORT_MONTH_NAMES[month]} ${year}`,
           count: 1,
         });
       }
