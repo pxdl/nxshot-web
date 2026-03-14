@@ -5,6 +5,9 @@ import {
   type ButtonVariant,
 } from "./Button";
 import { Spinner } from "./Spinner";
+import { collectFilesFromDirectoryHandle } from "../utils/filesystem";
+
+const supportsDirectoryPicker = "showDirectoryPicker" in window;
 
 interface FolderInputProps {
   onFilesSelected: (files: File[]) => void;
@@ -15,14 +18,13 @@ interface FolderInputProps {
 }
 
 /**
- * A styled folder input button that allows folder selection.
- * Works across all major browsers (Chrome, Firefox, Safari, Edge).
- * Uses webkitdirectory attribute for folder selection.
+ * A styled folder input button that opens a directory picker.
  *
- * Shows a loading state after the native folder picker closes while
- * the browser enumerates the directory (the slow part for NAS/network shares).
- * The loading state is triggered by window regaining focus after the
- * native dialog, not on the initial button click.
+ * Uses showDirectoryPicker() when available (Chromium) for reliable recursive
+ * enumeration — especially on network shares where <input webkitdirectory>
+ * may miss files in deeply nested directories.
+ *
+ * Falls back to <input webkitdirectory> on Firefox and Safari.
  */
 export function FolderInput({
   onFilesSelected,
@@ -31,26 +33,47 @@ export function FolderInput({
   variant = "secondary",
   icon,
 }: FolderInputProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [isWaitingForFiles, setIsWaitingForFiles] = useState(false);
+  const [isReading, setIsReading] = useState(false);
 
-  // Whether the native file dialog is currently open
+  // ── showDirectoryPicker path (Chromium) ──
+
+  const handleDirectoryPicker = async () => {
+    let dirHandle: FileSystemDirectoryHandle;
+    try {
+      dirHandle = await window.showDirectoryPicker();
+    } catch {
+      // User cancelled the picker
+      return;
+    }
+
+    setIsReading(true);
+    try {
+      const files = await collectFilesFromDirectoryHandle(dirHandle);
+      if (files.length > 0) {
+        onFilesSelected(files);
+      }
+    } finally {
+      setIsReading(false);
+    }
+  };
+
+  // ── <input webkitdirectory> fallback (Firefox, Safari) ──
+
+  const inputRef = useRef<HTMLInputElement>(null);
   const dialogOpenRef = useRef(false);
-  // Whether the dialog was cancelled (to avoid a brief loading flash)
   const cancelledRef = useRef(false);
   const focusTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // When the native dialog closes, the window regains focus.
-  // Show loading after a short debounce (avoids flash if user cancelled).
   useEffect(() => {
+    if (supportsDirectoryPicker) return;
+
     const onFocus = () => {
       if (!dialogOpenRef.current) return;
       dialogOpenRef.current = false;
 
-      // Short delay so a cancel event can fire first
       focusTimerRef.current = setTimeout(() => {
         if (!cancelledRef.current) {
-          setIsWaitingForFiles(true);
+          setIsReading(true);
         }
       }, 100);
     };
@@ -62,58 +85,66 @@ export function FolderInput({
     };
   }, []);
 
-  // Listen for the cancel event (user dismissed the file/confirmation dialog)
   useEffect(() => {
+    if (supportsDirectoryPicker) return;
+
     const input = inputRef.current;
     if (!input) return;
     const onCancel = () => {
       cancelledRef.current = true;
       clearTimeout(focusTimerRef.current);
-      setIsWaitingForFiles(false);
+      setIsReading(false);
     };
     input.addEventListener("cancel", onCancel);
     return () => input.removeEventListener("cancel", onCancel);
   }, []);
 
-  const handleClick = () => {
+  const handleFallbackClick = () => {
     cancelledRef.current = false;
     dialogOpenRef.current = true;
     inputRef.current?.click();
   };
 
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFallbackChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     clearTimeout(focusTimerRef.current);
-    setIsWaitingForFiles(false);
+    setIsReading(false);
 
     const fileList = event.target.files;
     if (!fileList || fileList.length === 0) return;
 
-    const files = Array.from(fileList);
-    onFilesSelected(files);
-
-    // Reset input so the same folder can be selected again
+    onFilesSelected(Array.from(fileList));
     event.target.value = "";
   };
 
-  const showLoading = isWaitingForFiles && !disabled;
+  // ── Render ──
+
+  const showLoading = isReading && !disabled;
 
   return (
     <>
-      <input
-        ref={inputRef}
-        type="file"
-        // @ts-expect-error webkitdirectory is non-standard but widely supported
-        webkitdirectory="true"
-        multiple
-        onChange={handleChange}
-        disabled={disabled}
-        className="hidden"
-        aria-hidden="true"
-      />
+      {!supportsDirectoryPicker && (
+        <input
+          ref={inputRef}
+          type="file"
+          // @ts-expect-error webkitdirectory is non-standard but widely supported
+          webkitdirectory="true"
+          multiple
+          onChange={handleFallbackChange}
+          disabled={disabled}
+          className="hidden"
+          aria-hidden="true"
+        />
+      )}
       <button
         type="button"
-        onClick={handleClick}
-        disabled={disabled || isWaitingForFiles}
+        onClick={
+          supportsDirectoryPicker
+            ? handleDirectoryPicker
+            : handleFallbackClick
+        }
+        disabled={disabled || isReading}
         className={`${buttonBaseStyles} ${buttonVariantStyles[variant]}`}
       >
         <span className="flex items-center justify-center gap-3">

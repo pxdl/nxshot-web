@@ -16,7 +16,7 @@ import { FolderStructureGuide } from "./components/FolderStructureGuide";
 import { Gallery } from "./components/Gallery";
 import { Spinner } from "./components/Spinner";
 import { ThemeToggle } from "./components/ThemeToggle";
-import { useScreenshotProcessor } from "./hooks";
+import { useScreenshotProcessor, useDropZone } from "./hooks";
 import { isSafari } from "./utils/zip";
 
 // Safari warning threshold: 500MB
@@ -55,6 +55,12 @@ export default function App() {
     backToGallery,
   } = useScreenshotProcessor();
 
+  const canAcceptDrop =
+    status !== "scanning" && status !== "loading" && status !== "processing";
+  const { isDragging, isReading: isReadingDrop } = useDropZone((files) => {
+    if (canAcceptDrop) processFiles(files);
+  });
+
   const showSafariWarning =
     IS_SAFARI && selectedSizeBytes > SAFARI_SIZE_WARNING_THRESHOLD;
 
@@ -62,6 +68,27 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col relative bg-stone-50 dark:bg-[#0d1117]">
+      {/* Drop Overlay (drag hover + reading) */}
+      {((isDragging && canAcceptDrop) || isReadingDrop) && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-50/90 dark:bg-[#0d1117]/90 backdrop-blur-sm"
+          aria-hidden="true"
+        >
+          <div className="flex flex-col items-center gap-4 p-16 rounded-2xl border-2 border-dashed border-nx/40 bg-white/60 dark:bg-[#161b22]/60">
+            {isReadingDrop ? (
+              <Spinner className="w-16 h-16 text-nx/50" />
+            ) : (
+              <FolderIcon className="w-16 h-16 text-nx/50" />
+            )}
+            <p className="text-lg font-semibold text-stone-600 dark:text-slate-300">
+              {isReadingDrop
+                ? "Reading folder..."
+                : "Drop your Album folder here"}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Red accent bar */}
       <div className="h-1 bg-gradient-to-r from-transparent via-nx to-transparent shrink-0" />
 
@@ -127,6 +154,12 @@ export default function App() {
                       ? `Scanning... ${scanCount > 0 ? `(${scanCount} found)` : ""}`
                       : "Select folder"}
                   </FolderInput>
+
+                  {status === "idle" && (
+                    <p className="text-xs text-stone-400 dark:text-slate-500 text-center">
+                      or drag & drop your Album folder here
+                    </p>
+                  )}
                 </div>
 
                 {error && <ErrorAlert message={error} />}
