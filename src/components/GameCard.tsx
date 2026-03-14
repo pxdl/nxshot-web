@@ -1,7 +1,9 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckIcon, VideoCameraIcon } from "@heroicons/react/24/solid";
 import type { GameGroup } from "../types";
 import { IMAGE_EXT, VIDEO_EXT } from "../constants";
+
+const SLIDESHOW_INTERVAL = 1500;
 
 interface GameCardProps {
   group: GameGroup;
@@ -89,18 +91,101 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle }: Ga
     };
   }, [thumbnailSource]);
 
+  // --- Hover slideshow ---
+  const [isHovering, setIsHovering] = useState(false);
+  const [slideIndex, setSlideIndex] = useState(0);
+  const [slideUrl, setSlideUrl] = useState<string | null>(null);
+  const slideUrlRef = useRef<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const fileCount = group.files.length;
+
+  const revokeSlideUrl = useCallback(() => {
+    if (slideUrlRef.current) {
+      URL.revokeObjectURL(slideUrlRef.current);
+      slideUrlRef.current = null;
+    }
+  }, []);
+
+  const advanceSlide = useCallback(() => {
+    setSlideIndex((prev) => (prev + 1) % fileCount);
+  }, [fileCount]);
+
+  useEffect(() => {
+    if (!isHovering || fileCount === 0) {
+      revokeSlideUrl();
+      setSlideUrl(null);
+      setSlideIndex(0);
+      clearTimeout(timerRef.current);
+      return;
+    }
+
+    const file = group.files[slideIndex];
+    if (!file) return;
+    const isVideo = file.file.name.endsWith(VIDEO_EXT);
+
+    revokeSlideUrl();
+    const url = URL.createObjectURL(file.file);
+    slideUrlRef.current = url;
+    setSlideUrl(url);
+
+    if (!isVideo && fileCount > 1) {
+      timerRef.current = setTimeout(advanceSlide, SLIDESHOW_INTERVAL);
+    }
+
+    return () => {
+      clearTimeout(timerRef.current);
+      revokeSlideUrl();
+    };
+  }, [isHovering, slideIndex, group.files, fileCount, revokeSlideUrl, advanceSlide]);
+
+  const handleVideoEnded = useCallback(() => {
+    if (fileCount > 1) advanceSlide();
+  }, [fileCount, advanceSlide]);
+
+  const handleMouseEnter = useCallback(() => setIsHovering(true), []);
+  const handleMouseLeave = useCallback(() => setIsHovering(false), []);
+
+  const slideIsVideo = slideUrl != null && group.files[slideIndex]?.file.name.endsWith(VIDEO_EXT);
+  const mediaClass = "w-full h-full object-cover absolute inset-0 z-[1]";
+
   return (
     <button
       type="button"
       onClick={onToggle}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className={`relative rounded-xl overflow-hidden text-left transition-all duration-200 cursor-pointer bg-white dark:bg-[#161b22] hover:shadow-lg focus-visible:outline-2 focus-visible:outline-nx active:scale-[0.98] ${
         selected
           ? "ring-2 ring-nx shadow-md shadow-nx/10"
           : "ring-1 ring-stone-200/80 dark:ring-slate-700/50 opacity-50 hover:opacity-75"
       }`}
     >
-      {/* Thumbnail */}
+      {/* Thumbnail / Slideshow */}
       <div className="aspect-video bg-stone-100 dark:bg-slate-800/80 relative overflow-hidden">
+        {/* Slideshow layer (on hover) */}
+        {isHovering && slideUrl && (
+          slideIsVideo ? (
+            <video
+              key={slideUrl}
+              src={slideUrl}
+              className={mediaClass}
+              autoPlay
+              muted
+              playsInline
+              onEnded={handleVideoEnded}
+            />
+          ) : (
+            <img
+              key={slideUrl}
+              src={slideUrl}
+              alt=""
+              className={mediaClass}
+            />
+          )
+        )}
+
+        {/* Default thumbnail */}
         {thumbnailUrl ? (
           <img
             src={thumbnailUrl}
@@ -114,9 +199,23 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle }: Ga
           </div>
         )}
 
+        {/* Slideshow dots (up to 12 files) */}
+        {isHovering && fileCount > 1 && fileCount <= 12 && (
+          <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1 z-[2]">
+            {group.files.map((_, i) => (
+              <div
+                key={i}
+                className={`w-1 h-1 rounded-full transition-colors ${
+                  i === slideIndex ? "bg-white" : "bg-white/40"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+
         {/* Checkbox overlay */}
         <div
-          className={`absolute top-2 right-2 w-5 h-5 rounded flex items-center justify-center transition-colors ${
+          className={`absolute top-2 right-2 w-5 h-5 rounded flex items-center justify-center transition-colors z-[2] ${
             selected
               ? "bg-nx text-white shadow-sm"
               : "bg-white/80 dark:bg-[#161b22]/80 border border-stone-300 dark:border-slate-600"
