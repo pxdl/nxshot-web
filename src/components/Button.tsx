@@ -11,15 +11,15 @@ interface ButtonProps {
 }
 
 export const buttonBaseStyles =
-  "w-full py-4 px-6 font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
+  "w-full py-4 px-6 font-semibold rounded-xl transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer";
 
 export const buttonVariantStyles: Record<ButtonVariant, string> = {
   primary:
-    "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg shadow-red-200 dark:shadow-red-900/30 hover:shadow-xl disabled:hover:shadow-lg",
+    "bg-nx hover:bg-nx-dark text-white shadow-lg shadow-nx/25 dark:shadow-nx/15 hover:shadow-xl hover:shadow-nx/30 disabled:hover:shadow-lg",
   secondary:
-    "bg-gradient-to-r from-slate-700 to-slate-800 dark:from-slate-600 dark:to-slate-700 hover:from-slate-800 hover:to-slate-900 dark:hover:from-slate-500 dark:hover:to-slate-600 text-white shadow-lg shadow-slate-300 dark:shadow-slate-900/50 hover:shadow-xl disabled:hover:shadow-lg",
+    "bg-stone-800 dark:bg-slate-600 hover:bg-stone-700 dark:hover:bg-slate-500 text-white shadow-lg shadow-stone-900/20 dark:shadow-black/30 hover:shadow-xl disabled:hover:shadow-lg",
   ghost:
-    "bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 shadow-lg shadow-slate-300 dark:shadow-slate-900/30 hover:shadow-xl",
+    "bg-transparent hover:bg-stone-100 dark:hover:bg-slate-800/80 text-stone-500 dark:text-slate-400 border border-stone-200 dark:border-slate-700 hover:border-stone-300 dark:hover:border-slate-600",
 };
 
 export function Button({

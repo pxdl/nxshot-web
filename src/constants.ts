@@ -22,7 +22,9 @@ export const FILENAME = {
 } as const;
 
 // Valid file extensions for Nintendo Switch captures
-export const VALID_EXTENSIONS = [".jpg", ".mp4"] as const;
+export const IMAGE_EXT = ".jpg" as const;
+export const VIDEO_EXT = ".mp4" as const;
+export const VALID_EXTENSIONS = [IMAGE_EXT, VIDEO_EXT] as const;
 
 // Validation bounds
 export const VALIDATION = {
@@ -48,11 +50,13 @@ export const DEFAULTS = {
 } as const;
 
 // Local storage keys
+// Keep in sync with inline theme script in index.html
 export const STORAGE_KEYS = {
   THEME: "theme",
 } as const;
 
 // Theme values
+// Keep in sync with inline theme script in index.html
 export const THEME = {
   DARK: "dark",
   LIGHT: "light",

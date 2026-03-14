@@ -1,4 +1,4 @@
-import type { Screenshot, CaptureIds } from "../types";
+import type { Screenshot, CaptureIds, GameGroup, ParsedFile } from "../types";
 import { FILENAME, VALIDATION, DEFAULTS } from "../constants";
 
 /**
@@ -68,4 +68,36 @@ export function parseScreenshotFilename(
     captureId,
     gameName: captureIds?.[captureId] ?? DEFAULTS.UNKNOWN_GAME_NAME,
   };
+}
+
+/**
+ * Group files by game name using parsed screenshot metadata.
+ * Returns groups sorted alphabetically by game name.
+ */
+export function groupFilesByGame(
+  files: File[],
+  captureIds: CaptureIds
+): GameGroup[] {
+  const groups = new Map<string, ParsedFile[]>();
+
+  for (const file of files) {
+    try {
+      const screenshot = parseScreenshotFilename(file.name, captureIds);
+      const existing = groups.get(screenshot.gameName);
+      if (existing) {
+        existing.push({ file, screenshot });
+      } else {
+        groups.set(screenshot.gameName, [{ file, screenshot }]);
+      }
+    } catch {
+      // Skip files that can't be parsed
+    }
+  }
+
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([gameName, parsedFiles]) => ({
+      gameName,
+      files: parsedFiles,
+    }));
 }

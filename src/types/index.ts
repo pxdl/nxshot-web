@@ -13,6 +13,16 @@ export interface Screenshot {
   gameName: string;
 }
 
+export interface ParsedFile {
+  file: File;
+  screenshot: Screenshot;
+}
+
+export interface GameGroup {
+  gameName: string;
+  files: ParsedFile[];
+}
+
 export interface SourceMetadata {
   count: number;
   fetchedAt: string;
