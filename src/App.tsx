@@ -17,13 +17,21 @@ import { FolderStructurePicker } from "./components/FolderStructurePicker";
 import { Gallery } from "./components/Gallery";
 import { Spinner } from "./components/Spinner";
 import { ThemeToggle } from "./components/ThemeToggle";
-import { useScreenshotProcessor, useDropZone } from "./hooks";
+import { useScreenshotProcessor, useDropZone, useCyclingMessage } from "./hooks";
 import { formatSize } from "./utils/format";
 import { isSafari } from "./utils/zip";
 
 // Safari warning threshold: 500MB
 const SAFARI_SIZE_WARNING_THRESHOLD = 500 * 1024 * 1024;
 const IS_SAFARI = isSafari();
+
+const READING_MESSAGES = [
+  "Scanning your captures...",
+  "Hang tight...",
+  "Digging through your Album...",
+  "This can take a moment for large folders...",
+  "Almost there...",
+];
 
 export default function App() {
   const {
@@ -52,9 +60,12 @@ export default function App() {
 
   const canAcceptDrop =
     status !== "scanning" && status !== "loading" && status !== "processing";
-  const { isDragging, isReading: isReadingDrop } = useDropZone((files) => {
+  const { isDragging, isReading: isReadingDrop, fileCount: dropFileCount } = useDropZone((files) => {
     if (canAcceptDrop) processFiles(files);
   });
+
+  const { message: dropMessage, visible: dropMessageVisible } =
+    useCyclingMessage(READING_MESSAGES, isReadingDrop);
 
   const showSafariWarning =
     IS_SAFARI && selectedSizeBytes > SAFARI_SIZE_WARNING_THRESHOLD;
@@ -76,10 +87,28 @@ export default function App() {
               <FolderIcon className="w-16 h-16 text-nx/50" />
             )}
             <p className="text-lg font-semibold text-stone-600 dark:text-slate-300">
-              {isReadingDrop
-                ? "Reading folder..."
-                : "Drop your Album folder here"}
+              {isReadingDrop ? (
+                <>
+                  Reading folder...
+                  {dropFileCount > 0 && (
+                    <span className="tabular-nums">
+                      {" "}
+                      ({dropFileCount} found)
+                    </span>
+                  )}
+                </>
+              ) : (
+                "Drop your Album folder here"
+              )}
             </p>
+            {isReadingDrop && (
+              <p
+                className="text-sm text-stone-400 dark:text-slate-500 transition-opacity duration-300"
+                style={{ opacity: dropMessageVisible ? 1 : 0 }}
+              >
+                {dropMessage}
+              </p>
+            )}
           </div>
         </div>
       )}

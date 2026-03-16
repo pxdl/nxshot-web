@@ -6,8 +6,17 @@ import {
 } from "./Button";
 import { Spinner } from "./Spinner";
 import { collectFilesFromDirectoryHandle } from "../utils/filesystem";
+import { useCyclingMessage } from "../hooks/useCyclingMessage";
 
 const supportsDirectoryPicker = "showDirectoryPicker" in window;
+
+const READING_MESSAGES = [
+  "Scanning your captures...",
+  "Hang tight...",
+  "Digging through your Album...",
+  "This can take a moment for large folders...",
+  "Almost there...",
+];
 
 interface FolderInputProps {
   onFilesSelected: (files: File[]) => void;
@@ -34,6 +43,15 @@ export function FolderInput({
   icon,
 }: FolderInputProps) {
   const [isReading, setIsReading] = useState(false);
+  const [fileCount, setFileCount] = useState(0);
+  const fileCountRef = useRef(0);
+
+  // Sync fileCountRef → fileCount state on a 100ms interval while reading
+  useEffect(() => {
+    if (!isReading) return;
+    const id = setInterval(() => setFileCount(fileCountRef.current), 100);
+    return () => clearInterval(id);
+  }, [isReading]);
 
   // ── showDirectoryPicker path (Chromium) ──
 
@@ -46,9 +64,13 @@ export function FolderInput({
       return;
     }
 
+    fileCountRef.current = 0;
+    setFileCount(0);
     setIsReading(true);
     try {
-      const files = await collectFilesFromDirectoryHandle(dirHandle);
+      const files = await collectFilesFromDirectoryHandle(dirHandle, () => {
+        fileCountRef.current++;
+      });
       if (files.length > 0) {
         onFilesSelected(files);
       }
@@ -121,6 +143,10 @@ export function FolderInput({
   // ── Render ──
 
   const showLoading = isReading && !disabled;
+  const { message, visible: messageVisible } = useCyclingMessage(
+    READING_MESSAGES,
+    showLoading
+  );
 
   return (
     <>
@@ -149,9 +175,28 @@ export function FolderInput({
       >
         <span className="flex items-center justify-center gap-3">
           {showLoading ? <Spinner className="w-5 h-5" /> : icon}
-          <span>{showLoading ? "Reading folder..." : children}</span>
+          <span>
+            {showLoading ? (
+              <>
+                Reading...
+                {fileCount > 0 && (
+                  <span className="tabular-nums"> ({fileCount} found)</span>
+                )}
+              </>
+            ) : (
+              children
+            )}
+          </span>
         </span>
       </button>
+      {showLoading && (
+        <p
+          className="text-xs text-stone-400 dark:text-slate-500 text-center transition-opacity duration-300"
+          style={{ opacity: messageVisible ? 1 : 0 }}
+        >
+          {message}
+        </p>
+      )}
     </>
   );
 }

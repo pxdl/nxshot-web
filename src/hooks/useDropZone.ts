@@ -9,9 +9,18 @@ import { collectFilesFromEntry } from "../utils/filesystem";
 export function useDropZone(onFilesCollected: (files: File[]) => void) {
   const [isDragging, setIsDragging] = useState(false);
   const [isReading, setIsReading] = useState(false);
+  const [fileCount, setFileCount] = useState(0);
+  const fileCountRef = useRef(0);
   const dragCounterRef = useRef(0);
   const callbackRef = useRef(onFilesCollected);
   callbackRef.current = onFilesCollected;
+
+  // Sync fileCountRef → fileCount state on a 100ms interval while reading
+  useEffect(() => {
+    if (!isReading) return;
+    const id = setInterval(() => setFileCount(fileCountRef.current), 100);
+    return () => clearInterval(id);
+  }, [isReading]);
 
   useEffect(() => {
     const onDragEnter = (e: DragEvent) => {
@@ -48,11 +57,18 @@ export function useDropZone(onFilesCollected: (files: File[]) => void) {
       const items = e.dataTransfer?.items;
       if (!items) return;
 
+      fileCountRef.current = 0;
+      setFileCount(0);
+
+      const onFileFound = () => {
+        fileCountRef.current++;
+      };
+
       const promises: Promise<File[]>[] = [];
       for (let i = 0; i < items.length; i++) {
         const entry = items[i]?.webkitGetAsEntry?.();
         if (entry) {
-          promises.push(collectFilesFromEntry(entry));
+          promises.push(collectFilesFromEntry(entry, onFileFound));
         }
       }
 
@@ -81,5 +97,5 @@ export function useDropZone(onFilesCollected: (files: File[]) => void) {
     };
   }, []);
 
-  return { isDragging, isReading };
+  return { isDragging, isReading, fileCount };
 }

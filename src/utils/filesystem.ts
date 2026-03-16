@@ -26,19 +26,21 @@ function shouldExcludeFile(file: File): boolean {
  * Skips the "Organized" output directory.
  */
 export async function collectFilesFromDirectoryHandle(
-  dirHandle: FileSystemDirectoryHandle
+  dirHandle: FileSystemDirectoryHandle,
+  onFileFound?: () => void
 ): Promise<File[]> {
   const filePromises: Promise<File>[] = [];
   const dirPromises: Promise<File[]>[] = [];
 
   for await (const entry of dirHandle.values()) {
     if (entry.kind === "file") {
+      onFileFound?.();
       filePromises.push(entry.getFile());
     } else if (
       entry.kind === "directory" &&
       entry.name !== DEFAULTS.EXCLUDED_DIRECTORY
     ) {
-      dirPromises.push(collectFilesFromDirectoryHandle(entry));
+      dirPromises.push(collectFilesFromDirectoryHandle(entry, onFileFound));
     }
   }
 
@@ -77,9 +79,11 @@ function readAllEntries(
  * Skips directories matching the excluded directory name ("Organized").
  */
 export async function collectFilesFromEntry(
-  entry: FileSystemEntry
+  entry: FileSystemEntry,
+  onFileFound?: () => void
 ): Promise<File[]> {
   if (entry.isFile) {
+    onFileFound?.();
     return [
       await new Promise<File>((resolve, reject) =>
         (entry as FileSystemFileEntry).file(resolve, reject)
@@ -91,7 +95,9 @@ export async function collectFilesFromEntry(
     if (entry.name === DEFAULTS.EXCLUDED_DIRECTORY) return [];
     const reader = (entry as FileSystemDirectoryEntry).createReader();
     const entries = await readAllEntries(reader);
-    const nested = await Promise.all(entries.map(collectFilesFromEntry));
+    const nested = await Promise.all(
+      entries.map((e) => collectFilesFromEntry(e, onFileFound))
+    );
     return nested.flat();
   }
 

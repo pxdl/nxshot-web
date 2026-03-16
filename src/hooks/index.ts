@@ -1,5 +1,6 @@
 export { useClickOutside } from "./useClickOutside";
 export { useTheme } from "./useTheme";
+export { useCyclingMessage } from "./useCyclingMessage";
 export { useDropZone } from "./useDropZone";
 export { useScreenshotProcessor } from "./useScreenshotProcessor";
 export type { ProcessorStatus, ScreenshotProcessorState } from "./useScreenshotProcessor";
