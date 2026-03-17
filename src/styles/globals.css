@@ -11,6 +11,9 @@
   --color-nx-dark: #c50010;
 
   --animate-fade-up: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-fade-in: fade-in 0.2s ease-out both;
+  --animate-fade-out: fade-out 0.15s ease-in both;
+  --animate-fade-out-down: fade-out-down 0.15s ease-in both;
   --animate-shimmer: shimmer 2s linear infinite;
   --animate-check-bounce: check-bounce 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
@@ -56,6 +59,35 @@ html {
     rgba(230, 0, 18, 0.08),
     transparent 70%
   );
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out-down {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
 }
 
 @keyframes check-bounce {
