@@ -2,25 +2,103 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Organize your Nintendo Switch screenshots by game with correct dates" />
-    <title>nxshot - Nintendo Switch Screenshot Organizer</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=JetBrains+Mono&display=swap" rel="stylesheet">
-  </head>
-  <body class="bg-stone-50 dark:bg-[#0d1117]">
-    <!-- Keep theme key/values in sync with STORAGE_KEYS and THEME in src/constants.ts -->
+    <style>html{background-color:#fafaf9}html.dark{background-color:#0d1117}</style>
     <script>
-      (function() {
-        const stored = localStorage.getItem("theme");
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        if (stored === "dark" || (!stored && prefersDark)) {
+      (function(){
+        var s=localStorage.getItem("theme");
+        if(s==="dark"||(!s&&matchMedia("(prefers-color-scheme:dark)").matches))
           document.documentElement.classList.add("dark");
-        }
       })();
     </script>
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="NXShot organizes your Nintendo Switch screenshots and videos by game with correct dates preserved. Select your Album folder, pick your games, and download a tidy ZIP. Free, open-source, and runs entirely in your browser." />
+    <title>nxshot - Nintendo Switch Screenshot Organizer</title>
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.nxshot.com/" />
+    <meta property="og:title" content="nxshot - Nintendo Switch Screenshot Organizer" />
+    <meta property="og:description" content="Organize your Nintendo Switch screenshots and videos by game with correct dates. Free, open-source, runs in your browser." />
+    <meta property="og:image" content="https://www.nxshot.com/og-image.png" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://www.nxshot.com/og-image.png" />
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "nxshot",
+      "url": "https://www.nxshot.com",
+      "description": "Organize your Nintendo Switch screenshots and videos by game with correct dates preserved. Select your Album folder, pick your games, and download a tidy ZIP.",
+      "applicationCategory": "UtilityApplication",
+      "operatingSystem": "Web",
+      "browserRequirements": "Requires a Chromium-based browser (Chrome, Edge, Opera) for full functionality",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "author": {
+        "@type": "Person",
+        "name": "pxdl",
+        "url": "https://github.com/pxdl"
+      },
+      "license": "https://opensource.org/licenses/MIT",
+      "image": "https://www.nxshot.com/og-image.png",
+      "sameAs": "https://github.com/pxdl/nxshot-web"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How does nxshot organize Nintendo Switch screenshots?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "nxshot scans your SD card's Album folder, identifies screenshots and videos by their filename pattern, extracts the game title and timestamp, then lets you download them as a ZIP organized into folders by game with correct dates preserved."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is nxshot free to use?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, nxshot is completely free and open-source. It runs entirely in your browser — no installation, no uploads, no account required."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does nxshot upload my screenshots anywhere?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. nxshot runs entirely client-side in your browser. Your files never leave your computer."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which browsers are supported?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "nxshot works best in Chromium-based browsers (Chrome, Edge, Opera) which support the File System Access API for reliable folder reading. Firefox and Safari are supported with limited functionality."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=JetBrains+Mono&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=JetBrains+Mono&display=swap" rel="stylesheet"></noscript>
+  </head>
+  <!-- Keep theme key/values in sync with STORAGE_KEYS and THEME in src/constants.ts -->
+  <body class="bg-stone-50 dark:bg-[#0d1117]">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
