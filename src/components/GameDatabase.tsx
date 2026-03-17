@@ -37,6 +37,20 @@ const coreRowModel = getCoreRowModel<GameEntry>();
 const sortedRowModel = getSortedRowModel<GameEntry>();
 const filteredRowModel = getFilteredRowModel<GameEntry>();
 
+// Splits the query into space-separated tokens and requires each to appear
+// as a substring anywhere in the game name or capture ID. This means partial
+// words match too — e.g. "rio kart" matches "Mario Kart" via "ma*rio*" and "*kart*".
+function multiWordFilter(
+  row: { getValue: (id: string) => unknown },
+  _columnId: string,
+  filterValue: string,
+): boolean {
+  const tokens = filterValue.toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+  const haystack = `${row.getValue("gameName")} ${row.getValue("captureId")}`.toLowerCase();
+  return tokens.every((token) => haystack.includes(token));
+}
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
@@ -178,6 +192,7 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
     state: { sorting, globalFilter },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: multiWordFilter,
     getCoreRowModel: coreRowModel,
     getSortedRowModel: sortedRowModel,
     getFilteredRowModel: filteredRowModel,
