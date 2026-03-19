@@ -252,13 +252,15 @@ export default function App() {
                 </Button>
               </div>
 
-              <FolderInput
-                onFilesSelected={processFiles}
-                variant="ghost"
-                icon={<FolderIcon className="w-5 h-5" />}
-              >
-                Select a different folder
-              </FolderInput>
+              <div className="w-full max-w-md">
+                <FolderInput
+                  onFilesSelected={processFiles}
+                  variant="ghost"
+                  icon={<FolderIcon className="w-5 h-5" />}
+                >
+                  Select a different folder
+                </FolderInput>
+              </div>
             </div>
           </div>
         )}
