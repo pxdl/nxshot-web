@@ -269,10 +269,12 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
     if (!file) return;
     const isVideo = file.file.name.endsWith(VIDEO_EXT);
 
-    // Snapshot outgoing slide to hold it visible during the transition
+    // Snapshot outgoing slide to hold it visible during the crossfade.
+    // Don't call stopVideo() here — it would blank the <video> element
+    // before React re-renders, flashing the default thumbnail. React
+    // handles unmounting the old element via the key={slideUrl} change.
     if (currentIsVideoRef.current && videoRef.current) {
       setPrevSnapshotUrl(snapshotVideoFrame(videoRef.current));
-      stopVideo();
     } else if (slideUrl) {
       setPrevSnapshotUrl(slideUrl);
     }
