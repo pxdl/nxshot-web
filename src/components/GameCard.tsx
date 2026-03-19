@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckIcon, VideoCameraIcon, TrophyIcon } from "@heroicons/react/24/solid";
+import { Spinner } from "./Spinner";
 import type { GameGroup } from "../types";
 import { IMAGE_EXT, VIDEO_EXT, SHORT_MONTH_NAMES } from "../constants";
 
@@ -8,6 +9,7 @@ const VIDEO_PREVIEW_DURATION = 5000;
 const CROSSFADE_MS = 150;
 const MAX_STAGGER_INDEX = 15;
 const STAGGER_DELAY_S = 0.04;
+const THUMB_W = 320;
 const SUPPORTS_RVFC =
   typeof HTMLVideoElement !== "undefined" &&
   "requestVideoFrameCallback" in HTMLVideoElement.prototype;
@@ -21,6 +23,72 @@ function snapshotVideoFrame(video: HTMLVideoElement): string | null {
   _snapshotCanvas.height = video.videoHeight;
   _snapshotCanvas.getContext("2d")!.drawImage(video, 0, 0);
   return _snapshotCanvas.toDataURL("image/jpeg", 0.85);
+}
+
+// Throttle concurrent video thumbnail extractions to prevent Safari page freeze
+const MAX_VIDEO_THUMB_CONCURRENCY = 2;
+let _activeVideoThumbs = 0;
+const _pendingVideoThumbs: (() => void)[] = [];
+
+function acquireVideoThumbSlot(): { promise: Promise<void>; cancel: () => void } {
+  if (_activeVideoThumbs < MAX_VIDEO_THUMB_CONCURRENCY) {
+    _activeVideoThumbs++;
+    return { promise: Promise.resolve(), cancel: () => {} };
+  }
+  let entry: (() => void) | null = null;
+  const promise = new Promise<void>((resolve) => {
+    entry = resolve;
+    _pendingVideoThumbs.push(resolve);
+  });
+  return {
+    promise,
+    cancel: () => {
+      const idx = _pendingVideoThumbs.indexOf(entry!);
+      if (idx !== -1) _pendingVideoThumbs.splice(idx, 1);
+    },
+  };
+}
+
+function releaseVideoThumbSlot(): void {
+  const next = _pendingVideoThumbs.shift();
+  if (next) next();
+  else _activeVideoThumbs--;
+}
+
+// Single shared visibilitychange listener for tab resume detection (lazy)
+let _tabResumeCount = 0;
+let _listenerRegistered = false;
+const _tabResumeCallbacks = new Set<() => void>();
+
+function ensureVisibilityListener(): void {
+  if (_listenerRegistered) return;
+  _listenerRegistered = true;
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      _tabResumeCount++;
+      for (const fn of _tabResumeCallbacks) fn();
+    }
+  });
+}
+
+function useTabResumeKey(active: boolean): number {
+  const [key, setKey] = useState(_tabResumeCount);
+  const lastSeenRef = useRef(_tabResumeCount);
+  useEffect(() => {
+    if (!active) return;
+    ensureVisibilityListener();
+    if (_tabResumeCount !== lastSeenRef.current) {
+      lastSeenRef.current = _tabResumeCount;
+      setKey(_tabResumeCount);
+    }
+    const fn = () => {
+      lastSeenRef.current = _tabResumeCount;
+      setKey(_tabResumeCount);
+    };
+    _tabResumeCallbacks.add(fn);
+    return () => { _tabResumeCallbacks.delete(fn); };
+  }, [active]);
+  return key;
 }
 
 interface GameCardProps {
@@ -50,18 +118,16 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
   }, [group.files]);
 
   const latestDate = useMemo(() => {
-    let latest: { year: number; month: number } | null = null;
-    for (const f of group.files) {
-      const s = f.screenshot;
-      if (!latest || s.year > latest.year || (s.year === latest.year && s.month > latest.month)) {
-        latest = { year: s.year, month: s.month };
-      }
-    }
-    if (!latest) return null;
-    return `${SHORT_MONTH_NAMES[latest.month]} ${latest.year}`;
-  }, [group.files]);
+    if (!group.latestTimestamp) return null;
+    const year = Math.floor(group.latestTimestamp / 10_000_000_000);
+    const month = Math.floor((group.latestTimestamp % 10_000_000_000) / 100_000_000);
+    return `${SHORT_MONTH_NAMES[month]} ${year}`;
+  }, [group.latestTimestamp]);
 
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+
+  // Restart spinner animation on Safari tab resume (single shared listener)
+  const tabResumeKey = useTabResumeKey(!thumbnailUrl);
 
   useEffect(() => {
     if (!thumbnailSource) return;
@@ -72,50 +138,77 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
       return () => URL.revokeObjectURL(url);
     }
 
-    // Extract first frame from video
-    const videoUrl = URL.createObjectURL(thumbnailSource.file);
-    const video = document.createElement("video");
-    video.muted = true;
-    video.preload = "metadata";
-
+    // Extract first frame from video (throttled for Safari performance)
     let cancelled = false;
-    let cleaned = false;
-    const cleanupVideo = () => {
-      if (cleaned) return;
-      cleaned = true;
-      URL.revokeObjectURL(videoUrl);
-      video.removeAttribute("src");
-      video.load();
-    };
+    let cleanup: (() => void) | null = null;
+    const { promise: slotReady, cancel: cancelSlot } = acquireVideoThumbSlot();
 
-    const THUMB_W = 320;
-    video.addEventListener("seeked", () => {
-      const thumbH = Math.round((video.videoHeight / video.videoWidth) * THUMB_W);
-      const canvas = document.createElement("canvas");
-      canvas.width = THUMB_W;
-      canvas.height = thumbH;
-      canvas.getContext("2d")!.drawImage(video, 0, 0, THUMB_W, thumbH);
-      canvas.toBlob((blob) => {
-        cleanupVideo();
-        if (blob && !cancelled) {
-          const frameUrl = URL.createObjectURL(blob);
-          setThumbnailUrl(frameUrl);
-        }
-      }, "image/jpeg");
-    }, { once: true });
+    slotReady.then(() => {
+      if (cancelled) { releaseVideoThumbSlot(); return; }
 
-    video.addEventListener("error", () => cleanupVideo(), { once: true });
+      const videoUrl = URL.createObjectURL(thumbnailSource.file);
+      const video = document.createElement("video");
+      video.muted = true;
+      video.preload = "metadata";
+      // Attach to DOM so Safari composites frames — requestVideoFrameCallback
+      // only fires for videos the browser is actively rendering.
+      video.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1";
+      video.setAttribute("aria-hidden", "true");
+      document.body.appendChild(video);
 
-    // Seek after metadata loads so currentTime is respected
-    video.addEventListener("loadedmetadata", () => {
-      video.currentTime = 0.1;
-    }, { once: true });
+      let cleaned = false;
+      let timerId: ReturnType<typeof setTimeout> | undefined;
+      const cleanupVideo = () => {
+        if (cleaned) return;
+        cleaned = true;
+        clearTimeout(timerId);
+        URL.revokeObjectURL(videoUrl);
+        video.removeAttribute("src");
+        video.load();
+        video.remove();
+        releaseVideoThumbSlot();
+      };
+      cleanup = cleanupVideo;
 
-    video.src = videoUrl;
+      let captured = false;
+      const captureFrame = () => {
+        if (captured || cancelled || !video.videoWidth) { cleanupVideo(); return; }
+        captured = true;
+        const thumbH = Math.round((video.videoHeight / video.videoWidth) * THUMB_W);
+        const canvas = document.createElement("canvas");
+        canvas.width = THUMB_W;
+        canvas.height = thumbH;
+        canvas.getContext("2d")!.drawImage(video, 0, 0, THUMB_W, thumbH);
+        canvas.toBlob((blob) => {
+          cleanupVideo();
+          if (blob && !cancelled) {
+            setThumbnailUrl(URL.createObjectURL(blob));
+          }
+        }, "image/jpeg");
+      };
+
+      // rVFC fires when the frame is composited (reliable now that the video
+      // is in the DOM). Timeout runs in parallel as a fallback — the `captured`
+      // guard ensures only the first to fire does the work.
+      video.addEventListener("seeked", () => {
+        if (cancelled) { cleanupVideo(); return; }
+        if (SUPPORTS_RVFC) video.requestVideoFrameCallback(captureFrame);
+        timerId = setTimeout(captureFrame, 200);
+      }, { once: true });
+
+      video.addEventListener("error", () => cleanupVideo(), { once: true });
+
+      video.addEventListener("loadedmetadata", () => {
+        video.currentTime = 0.1;
+      }, { once: true });
+
+      video.src = videoUrl;
+    });
 
     return () => {
       cancelled = true;
-      cleanupVideo();
+      cancelSlot();
+      cleanup?.();
       setThumbnailUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
@@ -310,7 +403,11 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200 dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-700">
             <div className="flex flex-col items-center gap-1.5 px-3">
-              <VideoCameraIcon className="w-6 h-6 text-stone-300 dark:text-slate-600" />
+              {thumbnailSource?.type === "video" ? (
+                <Spinner key={tabResumeKey} className="w-6 h-6 text-stone-300 dark:text-slate-600" />
+              ) : (
+                <VideoCameraIcon className="w-6 h-6 text-stone-300 dark:text-slate-600" />
+              )}
               <p className="text-[10px] font-display font-semibold text-stone-300 dark:text-slate-600 text-center leading-tight truncate max-w-full">
                 {group.gameName}
               </p>

@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { loadCaptureIdsMetadata } from "../utils/captureIds";
-import { GameDatabase } from "./GameDatabase";
 import type { CaptureIdsMetadata } from "../types";
+
+const GameDatabase = lazy(() =>
+  import("./GameDatabase").then((m) => ({ default: m.GameDatabase }))
+);
 
 export function DatabaseInfo() {
   const [metadata, setMetadata] = useState<CaptureIdsMetadata | null>(null);
@@ -32,10 +35,12 @@ export function DatabaseInfo() {
       </button>
 
       {databaseOpen && (
-        <GameDatabase
-          metadata={metadata}
-          onClose={() => setDatabaseOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <GameDatabase
+            metadata={metadata}
+            onClose={() => setDatabaseOpen(false)}
+          />
+        </Suspense>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Cycles through messages with a fade transition.
@@ -11,6 +11,7 @@ export function useCyclingMessage(
 ) {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     if (!active) {
@@ -22,13 +23,16 @@ export function useCyclingMessage(
     const fadeMs = 300;
     const id = setInterval(() => {
       setVisible(false);
-      setTimeout(() => {
+      fadeTimerRef.current = setTimeout(() => {
         setIndex((i) => (i + 1) % messages.length);
         setVisible(true);
       }, fadeMs);
     }, intervalMs);
 
-    return () => clearInterval(id);
+    return () => {
+      clearInterval(id);
+      clearTimeout(fadeTimerRef.current);
+    };
   }, [active, messages, intervalMs]);
 
   return { message: messages[index]!, visible };

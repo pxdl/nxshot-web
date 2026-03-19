@@ -1,5 +1,4 @@
 import { Zip, ZipPassThrough } from "fflate";
-import streamSaver from "streamsaver";
 import type { Screenshot } from "../types";
 import { DEFAULTS } from "../constants";
 
@@ -121,8 +120,10 @@ async function createNativeWritableStream(): Promise<WritableStreamResult> {
 
 /**
  * Create a writable stream using StreamSaver.js for Firefox.
+ * Dynamically imported so the library isn't in the main bundle for Chromium/Safari.
  */
-function createStreamSaverWritableStream(): WritableStreamResult {
+async function createStreamSaverWritableStream(): Promise<WritableStreamResult> {
+  const { default: streamSaver } = await import("streamsaver");
   const filename = DEFAULTS.ZIP_FILENAME;
   const fileStream = streamSaver.createWriteStream(filename);
 
@@ -221,7 +222,7 @@ export async function createZip(
 
   const writable = useNative
     ? await createNativeWritableStream()
-    : createStreamSaverWritableStream();
+    : await createStreamSaverWritableStream();
 
   const writer = writable.stream.getWriter();
   const total = files.length;

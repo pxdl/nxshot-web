@@ -59,8 +59,9 @@ export function parseScreenshotFilename(
   }
 
   // Validate the date is actually valid (e.g., not Feb 31)
-  const testDate = new Date(year, month, day, hour, minute, second);
-  if (isNaN(testDate.getTime())) {
+  const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const maxDay = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month]!;
+  if (day > maxDay) {
     throw new Error(`Invalid date in screenshot filename: ${filename}`);
   }
 
@@ -126,8 +127,14 @@ export function groupFilesByGame(
 
   return Array.from(groups.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([gameName, parsedFiles]) => ({
-      gameName,
-      files: parsedFiles,
-    }));
+    .map(([gameName, parsedFiles]) => {
+      let latest = 0;
+      for (const f of parsedFiles) {
+        const s = f.screenshot;
+        const ts = s.year * 10_000_000_000 + s.month * 100_000_000 + s.day * 1_000_000
+                 + s.hour * 10_000 + s.minute * 100 + s.second;
+        if (ts > latest) latest = ts;
+      }
+      return { gameName, files: parsedFiles, latestTimestamp: latest };
+    });
 }

@@ -103,8 +103,7 @@ export default function App() {
             </p>
             {isReadingDrop && (
               <p
-                className="text-sm text-stone-400 dark:text-slate-500 transition-opacity duration-300"
-                style={{ opacity: dropMessageVisible ? 1 : 0 }}
+                className={`text-sm text-stone-400 dark:text-slate-500 transition-opacity duration-300 ${dropMessageVisible ? "opacity-100" : "opacity-0"}`}
               >
                 {dropMessage}
               </p>

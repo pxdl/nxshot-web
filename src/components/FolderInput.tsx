@@ -191,8 +191,7 @@ export function FolderInput({
       </button>
       {showLoading && (
         <p
-          className="text-xs text-stone-400 dark:text-slate-500 text-center transition-opacity duration-300"
-          style={{ opacity: messageVisible ? 1 : 0 }}
+          className={`text-xs text-stone-400 dark:text-slate-500 text-center transition-opacity duration-300 ${messageVisible ? "opacity-100" : "opacity-0"}`}
         >
           {message}
         </p>

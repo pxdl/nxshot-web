@@ -50,6 +50,7 @@ describe("computeStats", () => {
   it("should compute stats for a single game with images and videos", () => {
     const groups: GameGroup[] = [
       {
+        latestTimestamp: 0,
         gameName: "TETRIS 99",
         files: [
           makeParsedFile("screenshot1.jpg", 2023, 0, 15, 500_000),
@@ -73,10 +74,12 @@ describe("computeStats", () => {
   it("should sort games by file count descending", () => {
     const groups: GameGroup[] = [
       {
+        latestTimestamp: 0,
         gameName: "Game A",
         files: [makeParsedFile("a.jpg", 2023, 0, 1, 100)],
       },
       {
+        latestTimestamp: 0,
         gameName: "Game B",
         files: [
           makeParsedFile("b1.jpg", 2023, 0, 1, 100),
@@ -85,6 +88,7 @@ describe("computeStats", () => {
         ],
       },
       {
+        latestTimestamp: 0,
         gameName: "Game C",
         files: [
           makeParsedFile("c1.jpg", 2023, 0, 1, 100),
@@ -104,6 +108,7 @@ describe("computeStats", () => {
   it("should compute correct date range", () => {
     const groups: GameGroup[] = [
       {
+        latestTimestamp: 0,
         gameName: "Game",
         files: [
           makeParsedFile("a.jpg", 2020, 5, 15, 100),
@@ -122,6 +127,7 @@ describe("computeStats", () => {
   it("should build a sorted timeline of monthly buckets", () => {
     const groups: GameGroup[] = [
       {
+        latestTimestamp: 0,
         gameName: "Game",
         files: [
           makeParsedFile("a.jpg", 2023, 2, 1, 100),
@@ -147,6 +153,7 @@ describe("computeStats", () => {
   it("should identify the busiest month", () => {
     const groups: GameGroup[] = [
       {
+        latestTimestamp: 0,
         gameName: "Game",
         files: [
           makeParsedFile("a.jpg", 2023, 5, 1, 100),
@@ -166,6 +173,7 @@ describe("computeStats", () => {
   it("should compute per-game size and media counts", () => {
     const groups: GameGroup[] = [
       {
+        latestTimestamp: 0,
         gameName: "Game A",
         files: [
           makeParsedFile("a1.jpg", 2023, 0, 1, 1_000),
@@ -184,6 +192,7 @@ describe("computeStats", () => {
   it("should compute hour distribution", () => {
     const groups: GameGroup[] = [
       {
+        latestTimestamp: 0,
         gameName: "Game",
         files: [
           makeParsedFile("a.jpg", 2023, 0, 1, 100, 8),
@@ -208,6 +217,7 @@ describe("computeStats", () => {
     // 2023-01-02 is a Monday (month 0 = January)
     const groups: GameGroup[] = [
       {
+        latestTimestamp: 0,
         gameName: "Game",
         files: [
           makeParsedFile("a.jpg", 2023, 0, 2, 100), // Mon
@@ -231,6 +241,7 @@ describe("computeStats", () => {
   it("should find the busiest day", () => {
     const groups: GameGroup[] = [
       {
+        latestTimestamp: 0,
         gameName: "Game",
         files: [
           makeParsedFile("a.jpg", 2023, 0, 15, 100),
@@ -250,6 +261,7 @@ describe("computeStats", () => {
   it("should find the longest gap between captures", () => {
     const groups: GameGroup[] = [
       {
+        latestTimestamp: 0,
         gameName: "Game",
         files: [
           makeParsedFile("a.jpg", 2023, 0, 1, 100),
@@ -270,10 +282,12 @@ describe("computeStats", () => {
   it("should count single-capture games", () => {
     const groups: GameGroup[] = [
       {
+        latestTimestamp: 0,
         gameName: "Game A",
         files: [makeParsedFile("a.jpg", 2023, 0, 1, 100)],
       },
       {
+        latestTimestamp: 0,
         gameName: "Game B",
         files: [
           makeParsedFile("b1.jpg", 2023, 0, 1, 100),
@@ -281,6 +295,7 @@ describe("computeStats", () => {
         ],
       },
       {
+        latestTimestamp: 0,
         gameName: "Game C",
         files: [makeParsedFile("c.jpg", 2023, 0, 1, 100)],
       },
@@ -294,6 +309,7 @@ describe("computeStats", () => {
   it("should return null for longestGap with a single capture day", () => {
     const groups: GameGroup[] = [
       {
+        latestTimestamp: 0,
         gameName: "Game",
         files: [makeParsedFile("a.jpg", 2023, 0, 1, 100)],
       },

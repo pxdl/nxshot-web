@@ -21,6 +21,7 @@ export interface ParsedFile {
 export interface GameGroup {
   gameName: string;
   files: ParsedFile[];
+  latestTimestamp: number;
 }
 
 export interface SourceMetadata {

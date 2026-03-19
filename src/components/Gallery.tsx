@@ -23,18 +23,6 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: "recent", label: "Most recent" },
 ];
 
-function getLatestTimestamp(group: GameGroup): number {
-  let latest = 0;
-  for (const f of group.files) {
-    const s = f.screenshot;
-    // Encode as a single comparable integer (avoids Date allocation)
-    const ts = s.year * 10_000_000_000 + s.month * 100_000_000 + s.day * 1_000_000
-             + s.hour * 10_000 + s.minute * 100 + s.second;
-    if (ts > latest) latest = ts;
-  }
-  return latest;
-}
-
 interface GalleryProps {
   gameGroups: GameGroup[];
   selectedGames: Set<string>;
@@ -68,11 +56,9 @@ export function Gallery({
       case "name":
         sorted.sort((a, b) => a.gameName.localeCompare(b.gameName));
         break;
-      case "recent": {
-        const timestamps = new Map(sorted.map(g => [g, getLatestTimestamp(g)]));
-        sorted.sort((a, b) => timestamps.get(b)! - timestamps.get(a)!);
+      case "recent":
+        sorted.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
         break;
-      }
     }
     return sorted;
   }, [gameGroups, sortMode]);
