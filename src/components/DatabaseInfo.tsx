@@ -15,7 +15,7 @@ export function DatabaseInfo() {
       .catch(() => setError(true));
   }, []);
 
-  if (error || !metadata) {
+  if (error) {
     return null;
   }
 
@@ -23,15 +23,19 @@ export function DatabaseInfo() {
     <div className="fixed bottom-4 left-4 z-10">
       <button
         type="button"
-        onClick={() => setDatabaseOpen(true)}
+        onClick={() => metadata && setDatabaseOpen(true)}
         className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-stone-500 dark:text-slate-400 hover:text-stone-600 dark:hover:text-slate-300 bg-white/80 dark:bg-[#161b22]/80 backdrop-blur-sm rounded-lg border border-stone-200 dark:border-slate-700 hover:border-stone-300 dark:hover:border-slate-600 transition-all cursor-pointer"
         aria-label="Browse game database"
       >
         <MagnifyingGlassIcon className="w-4 h-4" />
-        <span>{metadata.totalCount.toLocaleString()} games</span>
+        {metadata ? (
+          <span>{metadata.totalCount.toLocaleString()} games</span>
+        ) : (
+          <span className="inline-block w-16 h-3 bg-stone-200 dark:bg-slate-700 rounded animate-pulse" />
+        )}
       </button>
 
-      {databaseOpen && (
+      {databaseOpen && metadata && (
         <GameDatabase
           metadata={metadata}
           onClose={() => setDatabaseOpen(false)}
