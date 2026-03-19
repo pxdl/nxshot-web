@@ -231,7 +231,17 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
 
   const fileCount = group.files.length;
 
+  const stopVideo = useCallback(() => {
+    const v = videoRef.current;
+    if (v) {
+      v.pause();
+      v.removeAttribute("src");
+      v.load();
+    }
+  }, []);
+
   const revokeAll = useCallback(() => {
+    stopVideo();
     if (slideUrlRef.current) {
       URL.revokeObjectURL(slideUrlRef.current);
       slideUrlRef.current = null;
@@ -240,7 +250,7 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
       URL.revokeObjectURL(prevBlobUrlRef.current);
       prevBlobUrlRef.current = null;
     }
-  }, []);
+  }, [stopVideo]);
 
   const advanceSlide = useCallback(() => {
     setSlideIndex((prev) => (prev + 1) % fileCount);
@@ -270,6 +280,7 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
       if (currentIsVideoRef.current && videoRef.current) {
         // Capture the video's displayed frame — renders instantly as <img>
         setPrevSnapshotUrl(snapshotVideoFrame(videoRef.current));
+        stopVideo();
         URL.revokeObjectURL(slideUrlRef.current);
       } else {
         // Outgoing is an image — reuse its blob URL
@@ -291,7 +302,7 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
     return () => {
       clearTimeout(timerRef.current);
     };
-  }, [isHovering, slideIndex, group.files, fileCount, revokeAll, advanceSlide]);
+  }, [isHovering, slideIndex, group.files, fileCount, revokeAll, stopVideo, advanceSlide]);
 
   // Final cleanup on unmount (the main effect cleanup only clears the timer
   // so that outgoing slide URLs survive between transitions)
