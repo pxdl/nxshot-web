@@ -11,7 +11,7 @@ export function FolderStructureGuide() {
           <div className="w-2 h-2 rounded-full bg-[#ff5f57]" />
           <div className="w-2 h-2 rounded-full bg-[#febc2e]" />
           <div className="w-2 h-2 rounded-full bg-[#28c840]" />
-          <span className="ml-2 text-[11px] text-stone-500 dark:text-slate-400 font-mono">
+          <span className="ml-2 text-[11px] text-stone-600 dark:text-slate-400 font-mono">
             SD Card
           </span>
         </div>
@@ -28,11 +28,11 @@ export function FolderStructureGuide() {
           </div>
           <div className="ml-5">
             <span className="text-stone-400 dark:text-slate-600">├─ </span>
-            <span className="text-stone-400 dark:text-slate-600">Contents/</span>
+            <span className="text-stone-500 dark:text-slate-500">Contents/</span>
           </div>
           <div className="ml-5">
             <span className="text-stone-400 dark:text-slate-600">└─ </span>
-            <span className="text-stone-400 dark:text-slate-600">save/</span>
+            <span className="text-stone-500 dark:text-slate-500">save/</span>
           </div>
         </div>
       </div>
