@@ -35,14 +35,14 @@ function StatCard({
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-xs text-stone-400 dark:text-slate-500 font-medium uppercase tracking-wider">
+        <p className="text-xs text-stone-500 dark:text-slate-400 font-medium uppercase tracking-wider">
           {label}
         </p>
         <p className="text-xl font-bold text-stone-800 dark:text-slate-100 font-display tracking-tight">
           {value}
         </p>
         {sub && (
-          <p className="text-xs text-stone-400 dark:text-slate-500 mt-0.5">
+          <p className="text-xs text-stone-500 dark:text-slate-400 mt-0.5">
             {sub}
           </p>
         )}
@@ -120,7 +120,7 @@ function GameBar({
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-stone-400 dark:text-slate-500 font-mono hidden sm:inline">
+          <span className="text-xs text-stone-500 dark:text-slate-400 font-mono hidden sm:inline">
             {formatSize(totalSize)}
           </span>
           <span className="text-sm font-semibold text-stone-600 dark:text-slate-400 font-mono w-10 text-right">
@@ -179,7 +179,7 @@ function TimelineBar({
         className={`text-[10px] font-mono tabular-nums ${
           isMax
             ? "text-nx font-bold"
-            : "text-stone-400 dark:text-slate-500"
+            : "text-stone-500 dark:text-slate-400"
         }`}
       >
         {count}
@@ -198,7 +198,7 @@ function TimelineBar({
         className={`text-[10px] truncate w-full text-center ${
           isMax
             ? "text-nx font-semibold"
-            : "text-stone-400 dark:text-slate-500"
+            : "text-stone-500 dark:text-slate-400"
         }`}
         title={label}
       >
@@ -234,21 +234,21 @@ function MediaSplit({
       <div className="flex flex-col sm:flex-row sm:justify-between gap-2 text-sm">
         <div className="flex items-center gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-nx shrink-0" />
-          <PhotoIcon className="w-4 h-4 text-stone-400 dark:text-slate-500" />
+          <PhotoIcon className="w-4 h-4 text-stone-500 dark:text-slate-400" />
           <span className="text-stone-600 dark:text-slate-400">
             {images.toLocaleString()} screenshot{images !== 1 ? "s" : ""}
           </span>
-          <span className="text-stone-400 dark:text-slate-500 font-mono text-xs">
+          <span className="text-stone-500 dark:text-slate-400 font-mono text-xs">
             ({Math.round(imgPct)}%)
           </span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-blue-400 dark:bg-blue-500 shrink-0" />
-          <FilmIcon className="w-4 h-4 text-stone-400 dark:text-slate-500" />
+          <FilmIcon className="w-4 h-4 text-stone-500 dark:text-slate-400" />
           <span className="text-stone-600 dark:text-slate-400">
             {videos.toLocaleString()} video{videos !== 1 ? "s" : ""}
           </span>
-          <span className="text-stone-400 dark:text-slate-500 font-mono text-xs">
+          <span className="text-stone-500 dark:text-slate-400 font-mono text-xs">
             ({Math.round(100 - imgPct)}%)
           </span>
         </div>
@@ -268,13 +268,13 @@ function FunFactCard({
 }) {
   return (
     <div className="p-3 rounded-lg bg-stone-50 dark:bg-slate-800/50 border border-stone-200/50 dark:border-slate-700/30">
-      <p className="text-xs text-stone-400 dark:text-slate-500 font-medium uppercase tracking-wider mb-1">
+      <p className="text-xs text-stone-500 dark:text-slate-400 font-medium uppercase tracking-wider mb-1">
         {title}
       </p>
       <p className="text-sm font-semibold text-stone-800 dark:text-slate-200">
         {value}
       </p>
-      <p className="text-xs text-stone-400 dark:text-slate-500 mt-0.5">
+      <p className="text-xs text-stone-500 dark:text-slate-400 mt-0.5">
         {sub}
       </p>
     </div>
@@ -388,7 +388,7 @@ export function CollectionStats({ gameGroups }: CollectionStatsProps) {
             />
           ))}
           {remainingGames > 0 && (
-            <p className="text-xs text-stone-400 dark:text-slate-500 text-center pt-2">
+            <p className="text-xs text-stone-500 dark:text-slate-400 text-center pt-2">
               and {remainingGames} more game{remainingGames !== 1 ? "s" : ""}
             </p>
           )}
@@ -403,7 +403,7 @@ export function CollectionStats({ gameGroups }: CollectionStatsProps) {
           delay={0.2}
         >
           {stats.busiestMonth && (
-            <p className="text-xs text-stone-400 dark:text-slate-500 mb-3 -mt-1">
+            <p className="text-xs text-stone-500 dark:text-slate-400 mb-3 -mt-1">
               Peak:{" "}
               <span className="font-semibold text-nx">
                 {stats.busiestMonth.label}
@@ -423,7 +423,7 @@ export function CollectionStats({ gameGroups }: CollectionStatsProps) {
             ))}
           </div>
           {stats.timeline.length > MAX_TIMELINE_MONTHS && (
-            <p className="text-xs text-stone-400 dark:text-slate-500 text-center mt-2">
+            <p className="text-xs text-stone-500 dark:text-slate-400 text-center mt-2">
               Showing last {MAX_TIMELINE_MONTHS} months of{" "}
               {stats.timeline.length}
             </p>
@@ -484,7 +484,7 @@ export function CollectionStats({ gameGroups }: CollectionStatsProps) {
                           >
                             {period.label}
                           </span>
-                          <span className="text-[10px] text-stone-400 dark:text-slate-500">
+                          <span className="text-[10px] text-stone-500 dark:text-slate-400">
                             {period.range}
                           </span>
                         </div>
@@ -492,7 +492,7 @@ export function CollectionStats({ gameGroups }: CollectionStatsProps) {
                           className={`text-xs font-mono tabular-nums ${
                             isMax
                               ? "text-nx font-bold"
-                              : "text-stone-400 dark:text-slate-500"
+                              : "text-stone-500 dark:text-slate-400"
                           }`}
                         >
                           {count.toLocaleString()}

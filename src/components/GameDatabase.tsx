@@ -75,7 +75,7 @@ function CopyButton({ text }: { text: string }) {
       {copied ? (
         <ClipboardDocumentCheckIcon className="w-4 h-4 text-emerald-500" />
       ) : (
-        <ClipboardDocumentIcon className="w-4 h-4 text-stone-400 dark:text-slate-500" />
+        <ClipboardDocumentIcon className="w-4 h-4 text-stone-500 dark:text-slate-400" />
       )}
     </button>
   );
@@ -232,7 +232,7 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
           </div>
 
           <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400 dark:text-slate-500 pointer-events-none" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-500 dark:text-slate-400 pointer-events-none" />
             <input
               ref={searchRef}
               type="text"
@@ -247,7 +247,7 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
                 onClick={() => setGlobalFilter("")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-stone-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
               >
-                <XMarkIcon className="w-4 h-4 text-stone-400 dark:text-slate-500" />
+                <XMarkIcon className="w-4 h-4 text-stone-500 dark:text-slate-400" />
               </button>
             )}
           </div>
@@ -259,7 +259,7 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
             <Spinner className="w-8 h-8 text-nx/50" />
           </div>
         ) : error ? (
-          <div className="flex-1 flex items-center justify-center text-stone-400 dark:text-slate-500 text-sm">
+          <div className="flex-1 flex items-center justify-center text-stone-500 dark:text-slate-400 text-sm">
             {error}
           </div>
         ) : (
@@ -300,7 +300,7 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
             {/* Virtualized rows */}
             <div ref={parentRef} className="flex-1 overflow-auto">
               {rows.length === 0 ? (
-                <div className="flex items-center justify-center h-48 text-stone-400 dark:text-slate-500 text-sm">
+                <div className="flex items-center justify-center h-48 text-stone-500 dark:text-slate-400 text-sm">
                   No games found matching &ldquo;{globalFilter}&rdquo;
                 </div>
               ) : (
@@ -390,7 +390,7 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
                           <span>
                             {source.count.toLocaleString()} games
                             {source.sourceUpdatedAt && (
-                              <span className="text-stone-400 dark:text-slate-500">
+                              <span className="text-stone-500 dark:text-slate-400">
                                 {" · "}
                                 {formatDate(new Date(source.sourceUpdatedAt))}
                               </span>

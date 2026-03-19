@@ -103,7 +103,7 @@ export default function App() {
             </p>
             {isReadingDrop && (
               <p
-                className={`text-sm text-stone-400 dark:text-slate-500 transition-opacity duration-300 ${dropMessageVisible ? "opacity-100" : "opacity-0"}`}
+                className={`text-sm text-stone-500 dark:text-slate-400 transition-opacity duration-300 ${dropMessageVisible ? "opacity-100" : "opacity-0"}`}
               >
                 {dropMessage}
               </p>
@@ -179,7 +179,7 @@ export default function App() {
                   </FolderInput>
 
                   {status === "idle" && (
-                    <p className="text-xs text-stone-400 dark:text-slate-500 text-center">
+                    <p className="text-xs text-stone-500 dark:text-slate-400 text-center">
                       or drag & drop your Album folder here
                     </p>
                   )}
@@ -272,7 +272,7 @@ export default function App() {
                   className="flex items-center justify-center gap-2 py-3 px-4 bg-stone-100 dark:bg-slate-800/80 rounded-xl border border-stone-200/50 dark:border-slate-700/30"
                 >
                   <PhotoIcon
-                    className="w-5 h-5 text-stone-400 dark:text-slate-500"
+                    className="w-5 h-5 text-stone-500 dark:text-slate-400"
                     aria-hidden="true"
                   />
                   <span className="text-stone-600 dark:text-slate-300 font-medium">
@@ -306,7 +306,7 @@ export default function App() {
                         />
                       </div>
                     </div>
-                    <p className="mt-2 text-xs text-stone-400 dark:text-slate-500 text-center font-mono">
+                    <p className="mt-2 text-xs text-stone-500 dark:text-slate-400 text-center font-mono">
                       {Math.round(progress)}%
                     </p>
                   </div>
@@ -340,7 +340,7 @@ export default function App() {
                   <span className="font-semibold">Done!</span>
                 </div>
 
-                <p className="text-sm text-stone-400 dark:text-slate-500">
+                <p className="text-sm text-stone-500 dark:text-slate-400">
                   Saved as{" "}
                   <span className="font-medium text-stone-600 dark:text-slate-300">
                     {savedFilename}
@@ -378,7 +378,7 @@ export default function App() {
         className="py-6 text-center relative z-[1] animate-fade-up"
         style={{ animationDelay: "0.2s" }}
       >
-        <p className="text-sm text-stone-400 dark:text-slate-500">
+        <p className="text-sm text-stone-500 dark:text-slate-400">
           <span className="text-nx font-display font-bold">nx</span>
           <span className="font-display font-bold text-stone-600 dark:text-slate-300">
             shot

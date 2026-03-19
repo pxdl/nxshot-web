@@ -458,7 +458,7 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
           {group.gameName}
         </p>
         <div className="flex items-center justify-between mt-0.5">
-          <p className="text-xs text-stone-400 dark:text-slate-500">
+          <p className="text-xs text-stone-500 dark:text-slate-400">
             {imageCount > 0 &&
               `${imageCount} screenshot${imageCount !== 1 ? "s" : ""}`}
             {imageCount > 0 && videoCount > 0 && " \u00b7 "}
@@ -466,7 +466,7 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
               `${videoCount} video${videoCount !== 1 ? "s" : ""}`}
           </p>
           {latestDate && (
-            <p className="text-[10px] text-stone-300 dark:text-slate-600 font-mono tabular-nums shrink-0 ml-2">
+            <p className="text-[10px] text-stone-400 dark:text-slate-400 font-mono tabular-nums shrink-0 ml-2">
               {latestDate}
             </p>
           )}

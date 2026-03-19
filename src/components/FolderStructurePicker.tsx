@@ -49,14 +49,14 @@ export function FolderStructurePicker({
         className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border border-stone-200 dark:border-slate-700 bg-stone-50 dark:bg-slate-800/50 hover:bg-stone-100 dark:hover:bg-slate-800 transition-colors duration-150 cursor-pointer"
       >
         <div className="min-w-0 text-left">
-          <span className="text-xs text-stone-400 dark:text-slate-500 block leading-tight">
+          <span className="text-xs text-stone-500 dark:text-slate-400 block leading-tight">
             Folder structure
           </span>
           <span className="text-sm font-medium text-stone-700 dark:text-slate-300 block truncate">
             {selected.label}
           </span>
         </div>
-        <ChevronUpDownIcon className="w-4 h-4 text-stone-400 dark:text-slate-500 shrink-0" />
+        <ChevronUpDownIcon className="w-4 h-4 text-stone-500 dark:text-slate-400 shrink-0" />
       </button>
 
       {open && (
@@ -92,7 +92,7 @@ export function FolderStructurePicker({
                   >
                     {option.label}
                   </span>
-                  <span className="text-[11px] text-stone-400 dark:text-slate-500 block truncate">
+                  <span className="text-[11px] text-stone-500 dark:text-slate-400 block truncate">
                     {option.example}
                   </span>
                 </div>

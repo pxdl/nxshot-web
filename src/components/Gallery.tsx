@@ -126,7 +126,7 @@ export function Gallery({
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
-              <ChevronUpDownIcon className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 dark:text-slate-500 pointer-events-none" />
+              <ChevronUpDownIcon className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-stone-500 dark:text-slate-400 pointer-events-none" />
             </div>
 
             <SelectionButton onClick={onSelectAll} disabled={allSelected}>
