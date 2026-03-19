@@ -222,12 +222,22 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
   const [slideUrl, setSlideUrl] = useState<string | null>(null);
   const [slideLoaded, setSlideLoaded] = useState(false);
   const [prevSnapshotUrl, setPrevSnapshotUrl] = useState<string | null>(null);
-  const slideUrlRef = useRef<string | null>(null);
-  const prevBlobUrlRef = useRef<string | null>(null);
   const currentIsVideoRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Cache blob URLs per File so they're reused across hovers instead of
+  // creating (and re-buffering) a new URL every time.
+  const blobCacheRef = useRef(new Map<File, string>());
+  const getBlobUrl = useCallback((file: File) => {
+    let url = blobCacheRef.current.get(file);
+    if (!url) {
+      url = URL.createObjectURL(file);
+      blobCacheRef.current.set(file, url);
+    }
+    return url;
+  }, []);
 
   const fileCount = group.files.length;
 
@@ -240,25 +250,13 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
     }
   }, []);
 
-  const revokeAll = useCallback(() => {
-    stopVideo();
-    if (slideUrlRef.current) {
-      URL.revokeObjectURL(slideUrlRef.current);
-      slideUrlRef.current = null;
-    }
-    if (prevBlobUrlRef.current) {
-      URL.revokeObjectURL(prevBlobUrlRef.current);
-      prevBlobUrlRef.current = null;
-    }
-  }, [stopVideo]);
-
   const advanceSlide = useCallback(() => {
     setSlideIndex((prev) => (prev + 1) % fileCount);
   }, [fileCount]);
 
   useEffect(() => {
     if (!isHovering || fileCount === 0) {
-      revokeAll();
+      stopVideo();
       setSlideUrl(null);
       setPrevSnapshotUrl(null);
       setSlideIndex(0);
@@ -272,25 +270,14 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
     const isVideo = file.file.name.endsWith(VIDEO_EXT);
 
     // Snapshot outgoing slide to hold it visible during the transition
-    if (prevBlobUrlRef.current) {
-      URL.revokeObjectURL(prevBlobUrlRef.current);
-      prevBlobUrlRef.current = null;
-    }
-    if (slideUrlRef.current) {
-      if (currentIsVideoRef.current && videoRef.current) {
-        // Capture the video's displayed frame — renders instantly as <img>
-        setPrevSnapshotUrl(snapshotVideoFrame(videoRef.current));
-        stopVideo();
-        URL.revokeObjectURL(slideUrlRef.current);
-      } else {
-        // Outgoing is an image — reuse its blob URL
-        prevBlobUrlRef.current = slideUrlRef.current;
-        setPrevSnapshotUrl(slideUrlRef.current);
-      }
+    if (currentIsVideoRef.current && videoRef.current) {
+      setPrevSnapshotUrl(snapshotVideoFrame(videoRef.current));
+      stopVideo();
+    } else if (slideUrl) {
+      setPrevSnapshotUrl(slideUrl);
     }
 
-    const url = URL.createObjectURL(file.file);
-    slideUrlRef.current = url;
+    const url = getBlobUrl(file.file);
     currentIsVideoRef.current = isVideo;
     setSlideLoaded(false);
     setSlideUrl(url);
@@ -302,25 +289,24 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
     return () => {
       clearTimeout(timerRef.current);
     };
-  }, [isHovering, slideIndex, group.files, fileCount, revokeAll, stopVideo, advanceSlide]);
+  }, [isHovering, slideIndex, group.files, fileCount, stopVideo, getBlobUrl, advanceSlide]); // eslint-disable-line react-hooks/exhaustive-deps -- slideUrl read is intentional for snapshot
 
-  // Final cleanup on unmount (the main effect cleanup only clears the timer
-  // so that outgoing slide URLs survive between transitions)
+  // Revoke all cached blob URLs on unmount
   useEffect(() => {
     return () => {
       clearTimeout(fadeTimerRef.current);
-      revokeAll();
+      stopVideo();
+      for (const url of blobCacheRef.current.values()) {
+        URL.revokeObjectURL(url);
+      }
+      blobCacheRef.current.clear();
     };
-  }, [revokeAll]);
+  }, [stopVideo]);
 
   const handleSlideReady = useCallback(() => {
     setSlideLoaded(true);
-    // Keep snapshot visible during the CSS crossfade, then clean up
     clearTimeout(fadeTimerRef.current);
-    const blobUrl = prevBlobUrlRef.current;
-    prevBlobUrlRef.current = null;
     fadeTimerRef.current = setTimeout(() => {
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
       setPrevSnapshotUrl(null);
     }, CROSSFADE_MS);
   }, []);
