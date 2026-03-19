@@ -6,7 +6,7 @@ import {
   getZipPath,
 } from "../utils/screenshot";
 import { loadCaptureIds } from "../utils/captureIds";
-import { createZip, type ZipProgress } from "../utils/zip";
+import type { ZipProgress } from "../utils/zip";
 import type { CaptureIds, FolderStructure, GameGroup, Screenshot } from "../types";
 
 export type ProcessorStatus =
@@ -181,6 +181,7 @@ export function useScreenshotProcessor() {
       const pathGenerator = (screenshot: Screenshot, originalFilename: string) =>
         getZipPath(screenshot, originalFilename, folderStructure);
 
+      const { createZip } = await import("../utils/zip");
       const filename = await createZip(
         filesToExport,
         parseWithCaptureIds,

@@ -1,6 +1,7 @@
 import { Zip, ZipPassThrough } from "fflate";
 import type { Screenshot } from "../types";
 import { DEFAULTS } from "../constants";
+import { isSafari } from "./format";
 
 /**
  * Create a Date object from screenshot metadata.
@@ -29,16 +30,6 @@ export type ProgressCallback = (progress: ZipProgress) => void;
  */
 function hasNativeFileSystemAccess(): boolean {
   return "showSaveFilePicker" in window;
-}
-
-/**
- * Detect Safari browser.
- * Safari has issues with StreamSaver.js, so we need to use Blob download instead.
- */
-export function isSafari(): boolean {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent;
-  return ua.includes("Safari") && !ua.includes("Chrome") && !ua.includes("Chromium");
 }
 
 /**

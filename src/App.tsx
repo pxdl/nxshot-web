@@ -14,12 +14,15 @@ import { ErrorAlert } from "./components/ErrorAlert";
 import { FolderInput } from "./components/FolderInput";
 import { FolderStructureGuide } from "./components/FolderStructureGuide";
 import { FolderStructurePicker } from "./components/FolderStructurePicker";
-import { Gallery } from "./components/Gallery";
 import { Spinner } from "./components/Spinner";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { useScreenshotProcessor, useDropZone, useCyclingMessage } from "./hooks";
-import { formatSize } from "./utils/format";
-import { isSafari } from "./utils/zip";
+import { formatSize, isSafari } from "./utils/format";
+import { lazy, Suspense } from "react";
+
+const Gallery = lazy(() =>
+  import("./components/Gallery").then((m) => ({ default: m.Gallery }))
+);
 
 // Safari warning threshold: 500MB
 const SAFARI_SIZE_WARNING_THRESHOLD = 500 * 1024 * 1024;
@@ -199,15 +202,17 @@ export default function App() {
           >
             {error && <ErrorAlert message={error} className="mb-4" />}
 
-            <Gallery
-              gameGroups={gameGroups}
-              selectedGames={selectedGames}
-              selectedFileCount={selectedFileCount}
-              totalFileCount={totalFileCount}
-              onToggleGame={toggleGame}
-              onSelectAll={selectAll}
-              onDeselectAll={deselectAll}
-            />
+            <Suspense fallback={null}>
+              <Gallery
+                gameGroups={gameGroups}
+                selectedGames={selectedGames}
+                selectedFileCount={selectedFileCount}
+                totalFileCount={totalFileCount}
+                onToggleGame={toggleGame}
+                onSelectAll={selectAll}
+                onDeselectAll={deselectAll}
+              />
+            </Suspense>
 
             <div className="mt-8 flex flex-col items-center gap-4">
               {/* Safari Warning */}
