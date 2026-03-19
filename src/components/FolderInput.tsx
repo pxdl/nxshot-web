@@ -6,6 +6,7 @@ import {
 } from "./Button";
 import { Spinner } from "./Spinner";
 import { collectFilesFromDirectoryHandle } from "../utils/filesystem";
+import { loadCaptureIds } from "../utils/captureIds";
 import { useCyclingMessage } from "../hooks/useCyclingMessage";
 
 const supportsDirectoryPicker = "showDirectoryPicker" in window;
@@ -56,6 +57,7 @@ export function FolderInput({
   // ── showDirectoryPicker path (Chromium) ──
 
   const handleDirectoryPicker = async () => {
+    loadCaptureIds().catch(() => {});
     let dirHandle: FileSystemDirectoryHandle;
     try {
       dirHandle = await window.showDirectoryPicker();
@@ -122,6 +124,7 @@ export function FolderInput({
   }, []);
 
   const handleFallbackClick = () => {
+    loadCaptureIds().catch(() => {});
     cancelledRef.current = false;
     dialogOpenRef.current = true;
     inputRef.current?.click();

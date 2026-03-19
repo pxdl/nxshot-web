@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { collectFilesFromEntry } from "../utils/filesystem";
+import { loadCaptureIds } from "../utils/captureIds";
 
 /**
  * Full-page drop zone for folder drag & drop.
@@ -53,6 +54,7 @@ export function useDropZone(onFilesCollected: (files: File[]) => void) {
       e.preventDefault();
       dragCounterRef.current = 0;
       setIsDragging(false);
+      loadCaptureIds().catch(() => {});
 
       const items = e.dataTransfer?.items;
       if (!items) return;
