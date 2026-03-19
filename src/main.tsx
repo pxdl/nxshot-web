@@ -8,3 +8,6 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </StrictMode>
 );
+
+// Remove the static app shell overlay now that React has painted
+document.getElementById("app-shell")?.remove();
