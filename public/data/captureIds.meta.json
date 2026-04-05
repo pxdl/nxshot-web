@@ -1,21 +1,21 @@
 {
-  "totalCount": 29764,
-  "generatedAt": "2026-03-29T00:54:57.200255+00:00",
+  "totalCount": 29819,
+  "generatedAt": "2026-04-05T00:55:25.614731+00:00",
   "sources": {
     "switchbrew": {
       "count": 2242,
-      "fetchedAt": "2026-03-29T00:54:57.200255+00:00",
-      "sourceUpdatedAt": "2025-06-05T05:14:00+00:00"
+      "fetchedAt": "2026-04-05T00:55:25.614731+00:00",
+      "sourceUpdatedAt": "2025-06-05T06:14:00+00:00"
     },
     "nswdb": {
-      "count": 3770,
-      "fetchedAt": "2026-03-29T00:54:57.200255+00:00",
+      "count": 3819,
+      "fetchedAt": "2026-04-05T00:55:25.614731+00:00",
       "sourceUpdatedAt": null
     },
     "titledb": {
-      "count": 27799,
-      "fetchedAt": "2026-03-29T00:54:57.200255+00:00",
-      "sourceUpdatedAt": "2026-03-28T07:44:35Z"
+      "count": 27821,
+      "fetchedAt": "2026-04-05T00:55:25.614731+00:00",
+      "sourceUpdatedAt": "2026-04-02T05:34:02Z"
     }
   }
 }
