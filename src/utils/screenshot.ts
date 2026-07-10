@@ -80,6 +80,33 @@ export function parseScreenshotFilename(
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
 /**
+ * Sanitize a game name for safe use as a ZIP folder/file path segment.
+ *
+ * Game names come from captureIds.json, generated from third-party databases
+ * (including the publicly-editable Switchbrew wiki). This is a defense-in-depth
+ * guard so a future database regeneration can't inject zip-slip paths ("../"),
+ * path separators, or control characters into every user's download. It also
+ * fixes names that currently ship with embedded newlines (9 entries today).
+ */
+export function sanitizePathSegment(name: string): string {
+  const cleaned = name
+    // Replace path separators and control chars (incl. embedded newlines/tabs)
+    // with a space so they can't create nested folders or break extractors.
+    // eslint-disable-next-line no-control-regex -- matching control chars is the point
+    .replace(/[/\\\x00-\x1f]/g, " ")
+    // Collapse any run of whitespace to a single space.
+    .replace(/\s+/g, " ")
+    .trim()
+    // Windows rejects folder names with trailing dots or spaces.
+    .replace(/[. ]+$/g, "");
+  // Reject empty or pure-traversal segments.
+  if (cleaned === "" || cleaned === "." || cleaned === "..") {
+    return DEFAULTS.UNKNOWN_GAME_NAME;
+  }
+  return cleaned;
+}
+
+/**
  * Generate the ZIP path for a file based on the selected folder structure.
  */
 export function getZipPath(
@@ -87,16 +114,17 @@ export function getZipPath(
   originalFilename: string,
   structure: FolderStructure
 ): string {
+  const gameName = sanitizePathSegment(screenshot.gameName);
   switch (structure) {
     case "by-game":
-      return `${screenshot.gameName}/${originalFilename}`;
+      return `${gameName}/${originalFilename}`;
     case "by-date":
       return `${screenshot.year}/${MONTH_NAMES[screenshot.month]}/${originalFilename}`;
     case "by-game-date":
-      return `${screenshot.gameName}/${screenshot.year}-${pad2(screenshot.month + 1)}/${originalFilename}`;
+      return `${gameName}/${screenshot.year}-${pad2(screenshot.month + 1)}/${originalFilename}`;
     case "flat-renamed": {
       const ext = originalFilename.substring(originalFilename.lastIndexOf("."));
-      return `${screenshot.gameName} - ${screenshot.year}-${pad2(screenshot.month + 1)}-${pad2(screenshot.day)} ${pad2(screenshot.hour)}.${pad2(screenshot.minute)}.${pad2(screenshot.second)}${ext}`;
+      return `${gameName} - ${screenshot.year}-${pad2(screenshot.month + 1)}-${pad2(screenshot.day)} ${pad2(screenshot.hour)}.${pad2(screenshot.minute)}.${pad2(screenshot.second)}${ext}`;
     }
   }
 }

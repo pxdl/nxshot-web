@@ -69,9 +69,9 @@ function SectionCard({
     >
       <div className="flex items-center gap-2 mb-4">
         <span className="text-nx">{icon}</span>
-        <h3 className="text-sm font-semibold text-stone-700 dark:text-slate-300 uppercase tracking-wider">
+        <h2 className="text-sm font-semibold text-stone-700 dark:text-slate-300 uppercase tracking-wider">
           {title}
-        </h3>
+        </h2>
       </div>
       {children}
     </div>
@@ -104,7 +104,7 @@ function GameBar({
         <div className="flex items-center gap-2 min-w-0">
           <span
             className={`text-xs font-mono w-5 text-right shrink-0 ${
-              RANK_STYLES[rank] ?? "text-stone-300 dark:text-slate-600"
+              RANK_STYLES[rank] ?? "text-stone-500 dark:text-slate-400"
             }`}
           >
             {rank}
@@ -130,7 +130,7 @@ function GameBar({
       </div>
       <div className="h-2 bg-stone-100 dark:bg-slate-800 rounded-full overflow-hidden ml-7 flex">
         <div
-          className={`h-full transition-all duration-500 ${
+          className={`h-full transition-[width] duration-500 ease-out ${
             imgPct > 0 ? "rounded-l-full" : ""
           } ${
             vidPct === 0 ? "rounded-r-full" : ""
@@ -143,7 +143,7 @@ function GameBar({
         />
         {videoCount > 0 && (
           <div
-            className={`h-full transition-all duration-500 ${
+            className={`h-full transition-[width] duration-500 ease-out ${
               imgPct === 0 ? "rounded-l-full" : ""
             } rounded-r-full ${
               isTop3
@@ -186,7 +186,7 @@ function TimelineBar({
       </span>
       <div className="w-full h-20 bg-stone-100 dark:bg-slate-800/80 rounded-md relative flex items-end overflow-hidden">
         <div
-          className={`w-full rounded-md transition-all duration-500 ${
+          className={`w-full rounded-md transition-[height] duration-500 ease-out ${
             isMax
               ? "bg-gradient-to-t from-nx to-red-400"
               : "bg-nx/20 dark:bg-nx/15"
@@ -223,11 +223,11 @@ function MediaSplit({
     <div>
       <div className="h-4 flex rounded-full overflow-hidden bg-stone-100 dark:bg-slate-800 mb-3">
         <div
-          className="bg-gradient-to-r from-nx to-red-400 transition-all duration-500"
+          className="bg-gradient-to-r from-nx to-red-400 transition-[width] duration-500 ease-out"
           style={{ width: `${imgPct}%` }}
         />
         <div
-          className="bg-gradient-to-r from-blue-400 to-blue-300 dark:from-blue-500 dark:to-blue-600 transition-all duration-500"
+          className="bg-gradient-to-r from-blue-400 to-blue-300 dark:from-blue-500 dark:to-blue-600 transition-[width] duration-500 ease-out"
           style={{ width: `${100 - imgPct}%` }}
         />
       </div>
@@ -500,7 +500,7 @@ export function CollectionStats({ gameGroups }: CollectionStatsProps) {
                       </div>
                       <div className="h-2 bg-stone-100 dark:bg-slate-800/80 rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all duration-500 ${
+                          className={`h-full rounded-full transition-[width] duration-500 ease-out ${
                             isMax
                               ? "bg-gradient-to-r from-nx to-red-400"
                               : "bg-nx/20 dark:bg-nx/15"

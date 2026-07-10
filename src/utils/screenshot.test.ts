@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { parseScreenshotFilename } from "./screenshot";
-import type { CaptureIds } from "../types";
+import {
+  parseScreenshotFilename,
+  sanitizePathSegment,
+  getZipPath,
+} from "./screenshot";
+import type { CaptureIds, Screenshot } from "../types";
 
 // Real Nintendo Switch screenshot filename examples:
 // 2019022213273600-691C9B2C6D1F1E032DDC01FD026159FD.jpg
@@ -150,6 +154,92 @@ describe("parseScreenshotFilename", () => {
 
     expect(() => parseScreenshotFilename(filename)).toThrow(
       "Invalid screenshot filename format"
+    );
+  });
+});
+
+describe("sanitizePathSegment", () => {
+  it("leaves ordinary game names unchanged", () => {
+    expect(sanitizePathSegment("TETRIS 99 (EUR USA)")).toBe(
+      "TETRIS 99 (EUR USA)"
+    );
+  });
+
+  it("replaces embedded newlines with a single space", () => {
+    expect(sanitizePathSegment("Baldo\nThe guardian owls (USA)")).toBe(
+      "Baldo The guardian owls (USA)"
+    );
+  });
+
+  it("strips forward and back slashes so no nested folders are created", () => {
+    expect(sanitizePathSegment("Ratchet / Clank")).toBe("Ratchet Clank");
+    expect(sanitizePathSegment("a\\b")).toBe("a b");
+  });
+
+  it("neutralizes path traversal segments", () => {
+    expect(sanitizePathSegment("../etc")).toBe(".. etc");
+    expect(sanitizePathSegment("..")).toBe("Unknown");
+    expect(sanitizePathSegment(".")).toBe("Unknown");
+  });
+
+  it("strips control characters", () => {
+    expect(sanitizePathSegment("Game\x00\x07Name")).toBe("Game Name");
+  });
+
+  it("trims trailing dots and spaces (invalid on Windows)", () => {
+    expect(sanitizePathSegment("Game Name...")).toBe("Game Name");
+    expect(sanitizePathSegment("Game Name  ")).toBe("Game Name");
+  });
+
+  it("falls back to Unknown for empty/whitespace-only names", () => {
+    expect(sanitizePathSegment("")).toBe("Unknown");
+    expect(sanitizePathSegment("   \n\t ")).toBe("Unknown");
+  });
+});
+
+describe("getZipPath", () => {
+  const base: Screenshot = {
+    year: 2019,
+    month: 1, // February
+    day: 22,
+    hour: 13,
+    minute: 27,
+    second: 36,
+    captureId: "691C9B2C6D1F1E032DDC01FD026159FD",
+    gameName: "TETRIS 99 (EUR USA)",
+  };
+  const file = "2019022213273600-691C9B2C6D1F1E032DDC01FD026159FD.jpg";
+
+  it("builds by-game paths", () => {
+    expect(getZipPath(base, file, "by-game")).toBe(
+      `TETRIS 99 (EUR USA)/${file}`
+    );
+  });
+
+  it("builds by-date paths without the game name", () => {
+    expect(getZipPath(base, file, "by-date")).toBe(`2019/February/${file}`);
+  });
+
+  it("builds by-game-date paths", () => {
+    expect(getZipPath(base, file, "by-game-date")).toBe(
+      `TETRIS 99 (EUR USA)/2019-02/${file}`
+    );
+  });
+
+  it("builds flat-renamed paths", () => {
+    expect(getZipPath(base, file, "flat-renamed")).toBe(
+      "TETRIS 99 (EUR USA) - 2019-02-22 13.27.36.jpg"
+    );
+  });
+
+  it("sanitizes malicious game names in every game-based structure", () => {
+    const evil: Screenshot = { ...base, gameName: "../../evil\nname" };
+    expect(getZipPath(evil, file, "by-game")).toBe(`.. .. evil name/${file}`);
+    expect(getZipPath(evil, file, "by-game-date")).toBe(
+      `.. .. evil name/2019-02/${file}`
+    );
+    expect(getZipPath(evil, file, "flat-renamed")).toBe(
+      ".. .. evil name - 2019-02-22 13.27.36.jpg"
     );
   });
 });

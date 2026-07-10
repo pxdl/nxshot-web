@@ -1,7 +1,10 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronUpDownIcon, CheckIcon } from "@heroicons/react/24/solid";
 import { useClickOutside } from "../hooks";
 import type { FolderStructure } from "../types";
+
+// Keep in sync with --animate-popover-out duration in globals.css
+const POPOVER_CLOSE_MS = 130;
 
 const OPTIONS: { value: FolderStructure; label: string; example: string }[] = [
   {
@@ -36,8 +39,33 @@ export function FolderStructurePicker({
   onChange,
 }: FolderStructurePickerProps) {
   const [open, setOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const close = useCallback(() => setOpen(false), []);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const closingRef = useRef(false);
+
+  // Play the exit animation, then unmount once it finishes.
+  const close = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    setIsClosing(true);
+    closeTimerRef.current = setTimeout(() => {
+      setOpen(false);
+      setIsClosing(false);
+      closingRef.current = false;
+    }, POPOVER_CLOSE_MS);
+  }, []);
+
+  // Opening cancels any in-flight close, so the menu is grabbable mid-exit.
+  const openMenu = useCallback(() => {
+    clearTimeout(closeTimerRef.current);
+    closingRef.current = false;
+    setIsClosing(false);
+    setOpen(true);
+  }, []);
+
+  useEffect(() => () => clearTimeout(closeTimerRef.current), []);
+
   useClickOutside(ref, open, close);
   const selected = OPTIONS.find((o) => o.value === value)!;
 
@@ -45,7 +73,10 @@ export function FolderStructurePicker({
     <div className="relative w-full" ref={ref}>
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => (open && !isClosing ? close() : openMenu())}
+        aria-haspopup="listbox"
+        aria-expanded={open && !isClosing}
+        aria-label={`Folder structure: ${selected.label}`}
         className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border border-stone-200 dark:border-slate-700 bg-stone-50 dark:bg-slate-800/50 hover:bg-stone-100 dark:hover:bg-slate-800 transition-colors duration-150 cursor-pointer"
       >
         <div className="min-w-0 text-left">
@@ -60,7 +91,7 @@ export function FolderStructurePicker({
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 bottom-full mb-1.5 rounded-xl border border-stone-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl dark:shadow-black/40 overflow-hidden z-50">
+        <div className={`absolute left-0 right-0 bottom-full mb-1.5 origin-bottom ${isClosing ? "animate-popover-out" : "animate-popover-in"} rounded-xl border border-stone-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl dark:shadow-black/40 overflow-hidden z-50`}>
           {OPTIONS.map((option) => {
             const isSelected = value === option.value;
             return (
@@ -69,7 +100,7 @@ export function FolderStructurePicker({
                 type="button"
                 onClick={() => {
                   onChange(option.value);
-                  setOpen(false);
+                  close();
                 }}
                 className={`w-full text-left px-3 py-2 flex items-start gap-2.5 transition-colors duration-100 cursor-pointer ${
                   isSelected

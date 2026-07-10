@@ -46,6 +46,7 @@ export function Gallery({
   const [sortMode, setSortMode] = useState<SortMode>("count");
   const allSelected = selectedGames.size === gameGroups.length;
   const noneSelected = selectedGames.size === 0;
+  const activeTabIndex = TABS.findIndex((t) => t.value === tab);
 
   const sortedGroups = useMemo(() => {
     const sorted = [...gameGroups];
@@ -77,16 +78,25 @@ export function Gallery({
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
-          {/* Tab toggle */}
-          <div className="flex rounded-lg bg-stone-100 dark:bg-slate-800/80 p-0.5 border border-stone-200/50 dark:border-slate-700/30">
+          {/* Tab toggle — the pill slides between tabs for spatial continuity */}
+          <div className="relative flex rounded-lg bg-stone-100 dark:bg-slate-800/80 p-0.5 border border-stone-200/50 dark:border-slate-700/30">
+            <div
+              aria-hidden="true"
+              className="absolute top-0.5 bottom-0.5 left-0.5 rounded-md bg-white dark:bg-slate-700 shadow-sm transition-transform duration-200 ease-snappy"
+              style={{
+                width: `calc((100% - 4px) / ${TABS.length})`,
+                transform: `translateX(${activeTabIndex * 100}%)`,
+              }}
+            />
             {TABS.map(({ value, label, icon: Icon }) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setTab(value)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                aria-pressed={tab === value}
+                className={`relative z-[1] flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-150 cursor-pointer ${
                   tab === value
-                    ? "bg-white dark:bg-slate-700 text-stone-800 dark:text-slate-200 shadow-sm"
+                    ? "text-stone-800 dark:text-slate-200"
                     : "text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-300"
                 }`}
               >
@@ -120,6 +130,7 @@ export function Gallery({
               <select
                 value={sortMode}
                 onChange={(e) => setSortMode(e.target.value as SortMode)}
+                aria-label="Sort games"
                 className="appearance-none text-xs font-medium pl-3 pr-7 py-1.5 rounded-lg bg-stone-100 dark:bg-slate-800/80 text-stone-600 dark:text-slate-300 border border-stone-200/50 dark:border-slate-700/30 hover:bg-stone-200 dark:hover:bg-slate-700 transition-colors cursor-pointer focus:outline-none focus-visible:outline-2 focus-visible:outline-nx"
               >
                 {SORT_OPTIONS.map(({ value, label }) => (

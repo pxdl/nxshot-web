@@ -15,6 +15,10 @@ const SUPPORTS_RVFC =
   "requestVideoFrameCallback" in HTMLVideoElement.prototype;
 
 
+const prefersReducedMotion = () =>
+  typeof matchMedia !== "undefined" &&
+  matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 let _snapshotCanvas: HTMLCanvasElement | null = null;
 function snapshotVideoFrame(video: HTMLVideoElement): string | null {
   if (!video.videoWidth) return null;
@@ -295,13 +299,16 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
 
   // Revoke all cached blob URLs on unmount
   useEffect(() => {
+    // Capture the Map now; it's created once via useRef and never reassigned,
+    // so reading it in cleanup is safe (and keeps exhaustive-deps happy).
+    const blobCache = blobCacheRef.current;
     return () => {
       clearTimeout(fadeTimerRef.current);
       stopVideo();
-      for (const url of blobCacheRef.current.values()) {
+      for (const url of blobCache.values()) {
         URL.revokeObjectURL(url);
       }
-      blobCacheRef.current.clear();
+      blobCache.clear();
     };
   }, [stopVideo]);
 
@@ -330,8 +337,13 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
     }
   }, [fileCount, advanceSlide]);
 
-  const handleMouseEnter = useCallback(() => setIsHovering(true), []);
-  const handleMouseLeave = useCallback(() => setIsHovering(false), []);
+  // Start the preview on hover OR keyboard focus (keyboard/touch users can't
+  // hover). Suppress the JS-driven slideshow/video autoplay entirely under
+  // prefers-reduced-motion — the static thumbnail stays put.
+  const handlePreviewStart = useCallback(() => {
+    if (!prefersReducedMotion()) setIsHovering(true);
+  }, []);
+  const handlePreviewStop = useCallback(() => setIsHovering(false), []);
 
   const slideIsVideo = slideUrl != null && currentIsVideoRef.current;
   const mediaClass = `w-full h-full object-cover absolute inset-0 z-[1] ${prevSnapshotUrl ? "transition-opacity duration-150" : ""} ${slideLoaded ? "opacity-100" : "opacity-0"}`;
@@ -343,9 +355,13 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
     <button
       type="button"
       onClick={onToggle}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      className={`relative rounded-xl overflow-hidden text-left transition-all duration-200 cursor-pointer bg-white dark:bg-[#161b22] focus-visible:outline-2 focus-visible:outline-nx active:scale-[0.98] animate-fade-up ${
+      onMouseEnter={handlePreviewStart}
+      onMouseLeave={handlePreviewStop}
+      onFocus={handlePreviewStart}
+      onBlur={handlePreviewStop}
+      aria-pressed={selected}
+      aria-label={`${group.gameName}, ${fileCount} ${fileCount === 1 ? "capture" : "captures"}`}
+      className={`relative rounded-xl overflow-hidden text-left transition-[transform,box-shadow] duration-200 ease-snappy cursor-pointer bg-white dark:bg-[#161b22] focus-visible:outline-2 focus-visible:outline-nx active:scale-[0.98] active:duration-100 animate-fade-up ${
         selected
           ? "ring-2 ring-nx shadow-lg shadow-nx/15 hover:shadow-xl hover:shadow-nx/20 hover:-translate-y-0.5"
           : "ring-1 ring-stone-200/80 dark:ring-slate-700/50 hover:ring-stone-300 dark:hover:ring-slate-600 hover:shadow-lg hover:-translate-y-0.5"
@@ -407,7 +423,7 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
               ) : (
                 <VideoCameraIcon className="w-6 h-6 text-stone-300 dark:text-slate-600" />
               )}
-              <p className="text-[10px] font-display font-semibold text-stone-300 dark:text-slate-600 text-center leading-tight truncate max-w-full">
+              <p className="text-[10px] font-display font-semibold text-stone-500 dark:text-slate-400 text-center leading-tight truncate max-w-full">
                 {group.gameName}
               </p>
             </div>
@@ -444,7 +460,7 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
               : "bg-white/80 dark:bg-[#161b22]/80 border border-stone-300 dark:border-slate-600"
           }`}
         >
-          {selected && <CheckIcon className="w-3.5 h-3.5 animate-check-bounce" />}
+          {selected && <CheckIcon className="w-3.5 h-3.5 animate-check-pop" />}
         </div>
       </div>
 
@@ -465,7 +481,7 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
               `${videoCount} video${videoCount !== 1 ? "s" : ""}`}
           </p>
           {latestDate && (
-            <p className="text-[10px] text-stone-400 dark:text-slate-400 font-mono tabular-nums shrink-0 ml-2">
+            <p className="text-[10px] text-stone-500 dark:text-slate-400 font-mono tabular-nums shrink-0 ml-2">
               {latestDate}
             </p>
           )}

@@ -5,9 +5,11 @@
     <style>html{background-color:#fafaf9}html.dark{background-color:#0d1117}</style>
     <script>
       (function(){
-        var s=localStorage.getItem("theme");
-        if(s==="dark"||(!s&&matchMedia("(prefers-color-scheme:dark)").matches))
-          document.documentElement.classList.add("dark");
+        try{
+          var s=localStorage.getItem("theme");
+          if(s==="dark"||(!s&&matchMedia("(prefers-color-scheme:dark)").matches))
+            document.documentElement.classList.add("dark");
+        }catch(e){/* storage blocked (e.g. all cookies off) — fall back to light */}
       })();
     </script>
     <link rel="icon" href="/favicon.ico" />
@@ -69,7 +71,7 @@
           "name": "Is nxshot free to use?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes, nxshot is completely free and open-source. It runs entirely in your browser — no installation, no uploads, no account required."
+            "text": "Yes, nxshot is completely free and open-source. It runs entirely in your browser, with no installation, no uploads, and no account required."
           }
         },
         {

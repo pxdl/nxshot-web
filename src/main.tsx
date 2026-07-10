@@ -1,11 +1,14 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import "./styles/globals.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>
 );
 
@@ -22,10 +25,21 @@ if (shell) {
   if (cssReady()) {
     shell.remove();
   } else {
+    let removed = false;
+    const removeShell = () => {
+      if (removed) return;
+      removed = true;
+      shell.remove();
+    };
     const poll = () => {
-      if (cssReady()) shell.remove();
+      if (removed) return;
+      if (cssReady()) removeShell();
       else requestAnimationFrame(poll);
     };
     requestAnimationFrame(poll);
+    // Hard deadline: a failed CSS request never fires onload (and the media
+    // attribute stays "print"), so the poll loop would otherwise spin forever
+    // and trap the user behind the splash shell. Remove it regardless after 4s.
+    setTimeout(removeShell, 4000);
   }
 }

@@ -18,7 +18,7 @@ import { Spinner } from "./components/Spinner";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { useScreenshotProcessor, useDropZone, useCyclingMessage } from "./hooks";
 import { formatSize, isSafari } from "./utils/format";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 
 const Gallery = lazy(() =>
   import("./components/Gallery").then((m) => ({ default: m.Gallery }))
@@ -59,13 +59,17 @@ export default function App() {
     selectAll,
     deselectAll,
     backToGallery,
+    reportError,
   } = useScreenshotProcessor();
 
   const canAcceptDrop =
     status !== "scanning" && status !== "loading" && status !== "processing";
-  const { isDragging, isReading: isReadingDrop, fileCount: dropFileCount } = useDropZone((files) => {
-    if (canAcceptDrop) processFiles(files);
-  });
+  const { isDragging, isReading: isReadingDrop, fileCount: dropFileCount } = useDropZone(
+    (files) => {
+      if (canAcceptDrop) processFiles(files);
+    },
+    { canAcceptDrop, onError: reportError }
+  );
 
   const { message: dropMessage, visible: dropMessageVisible } =
     useCyclingMessage(READING_MESSAGES, isReadingDrop);
@@ -75,15 +79,28 @@ export default function App() {
 
   const isGalleryView = status === "ready" && gameGroups.length > 0;
 
+  // Warm the zip chunk (and its dynamic import) as soon as the gallery is ready
+  // so the import inside the download click handler resolves instantly and
+  // doesn't risk expiring the transient user activation showSaveFilePicker needs.
+  useEffect(() => {
+    if (isGalleryView) import("./utils/zip").catch(() => {});
+  }, [isGalleryView]);
+
   return (
     <div className="min-h-screen flex flex-col relative bg-stone-50 dark:bg-[#0d1117]">
+      {/* Screen-reader status for folder reading — the visual overlay below is
+          aria-hidden, so this mirrors its state to assistive tech. Kept stable
+          (no live file count) to avoid announcement spam. */}
+      <div className="sr-only" role="status" aria-live="polite">
+        {isReadingDrop ? "Reading your folder…" : ""}
+      </div>
       {/* Drop Overlay (drag hover + reading) */}
       {((isDragging && canAcceptDrop) || isReadingDrop) && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-50/90 dark:bg-[#0d1117]/90 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-50/90 dark:bg-[#0d1117]/90 backdrop-blur-sm animate-fade-in"
           aria-hidden="true"
         >
-          <div className="flex flex-col items-center gap-4 p-16 rounded-2xl border-2 border-dashed border-nx/40 bg-white/60 dark:bg-[#161b22]/60">
+          <div className="flex flex-col items-center gap-4 p-16 rounded-2xl border-2 border-dashed border-nx/40 bg-white/60 dark:bg-[#161b22]/60 animate-overlay-pop">
             {isReadingDrop ? (
               <Spinner className="w-16 h-16 text-nx/50" />
             ) : (
@@ -166,6 +183,7 @@ export default function App() {
 
                   <FolderInput
                     onFilesSelected={processFiles}
+                    onError={reportError}
                     disabled={status === "scanning"}
                     variant="secondary"
                     icon={
@@ -255,6 +273,7 @@ export default function App() {
               <div className="w-full max-w-md">
                 <FolderInput
                   onFilesSelected={processFiles}
+                  onError={reportError}
                   variant="ghost"
                   icon={<FolderIcon className="w-5 h-5" />}
                 >
@@ -304,7 +323,7 @@ export default function App() {
                       className="h-2.5 bg-stone-100 dark:bg-slate-800 rounded-full overflow-hidden"
                     >
                       <div
-                        className="h-full rounded-full transition-all duration-300 ease-out relative bg-gradient-to-r from-nx to-red-400"
+                        className="h-full rounded-full transition-[width] duration-300 ease-out relative bg-gradient-to-r from-nx to-red-400"
                         style={{ width: `${progress}%` }}
                       >
                         <div
@@ -366,6 +385,7 @@ export default function App() {
 
                 <FolderInput
                   onFilesSelected={processFiles}
+                  onError={reportError}
                   variant="secondary"
                   icon={<FolderIcon className="w-5 h-5" />}
                 >

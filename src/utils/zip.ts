@@ -115,6 +115,12 @@ async function createNativeWritableStream(): Promise<WritableStreamResult> {
  */
 async function createStreamSaverWritableStream(): Promise<WritableStreamResult> {
   const { default: streamSaver } = await import("streamsaver");
+  // Point StreamSaver at our self-hosted mitm/service-worker instead of the
+  // library default (https://jimmywarting.github.io/StreamSaver.js/...). That
+  // default loads third-party code from a personal GitHub Pages site into the
+  // Firefox download flow — a supply-chain risk and a reliability hazard if the
+  // host is unreachable. Both files are copied into public/streamsaver/.
+  streamSaver.mitm = "/streamsaver/mitm.html";
   const filename = DEFAULTS.ZIP_FILENAME;
   const fileStream = streamSaver.createWriteStream(filename);
 
@@ -267,6 +273,11 @@ export async function createZip(
 
     // Flush any remaining data (ZIP footer)
     await flushPending();
+
+    // A fflate error can surface during finalization (end() and the footer
+    // flush). Re-check before closing — otherwise we'd close the writer
+    // normally and report success on a possibly-truncated archive.
+    if (error) throw error;
 
     // Close the writer (also closes the underlying stream)
     await writer.close();

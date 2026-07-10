@@ -11,7 +11,7 @@ interface ButtonProps {
 }
 
 export const buttonBaseStyles =
-  "w-full py-4 px-6 font-semibold rounded-xl transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer";
+  "w-full py-4 px-6 font-semibold rounded-xl transition-[background-color,box-shadow,transform] duration-200 ease-snappy active:scale-[0.98] active:duration-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer";
 
 export const buttonVariantStyles: Record<ButtonVariant, string> = {
   primary:
