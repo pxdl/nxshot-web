@@ -8,9 +8,12 @@ function deferCss(): Plugin {
     name: "defer-css",
     enforce: "post",
     transformIndexHtml(html) {
+      // `onerror` mirrors `onload`: a failed CSS request never fires onload, so
+      // without this the media stays "print" forever and main.tsx's shell-removal
+      // poll (which waits for media to flip) would never unblock.
       return html.replace(
         /<link rel="stylesheet" crossorigin href="(\/assets\/[^"]+\.css)">/,
-        `<link rel="stylesheet" crossorigin href="$1" media="print" onload="this.media='all'">\n    <noscript><link rel="stylesheet" crossorigin href="$1"></noscript>`,
+        `<link rel="stylesheet" crossorigin href="$1" media="print" onload="this.media='all'" onerror="this.media='all'">\n    <noscript><link rel="stylesheet" crossorigin href="$1"></noscript>`,
       );
     },
   };

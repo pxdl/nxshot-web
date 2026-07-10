@@ -52,36 +52,54 @@ function multiWordFilter(
 }
 
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => () => {
     if (timerRef.current) clearTimeout(timerRef.current);
   }, []);
 
+  const copied = state === "copied";
+  const failed = state === "failed";
+
   return (
     <button
       type="button"
       onClick={async (e) => {
         e.stopPropagation();
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
+        // writeText rejects on insecure contexts / denied permissions. Catch it
+        // so it isn't an unhandled rejection and the user gets clear feedback.
+        try {
+          await navigator.clipboard.writeText(text);
+          setState("copied");
+        } catch {
+          setState("failed");
+        }
         if (timerRef.current) clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => setCopied(false), 1500);
+        timerRef.current = setTimeout(() => setState("idle"), 1500);
       }}
       className="p-1 rounded hover:bg-stone-200 dark:hover:bg-slate-600 transition-colors cursor-pointer shrink-0"
-      title={copied ? "Copied!" : "Copy to clipboard"}
+      title={copied ? "Copied!" : failed ? "Copy failed" : "Copy to clipboard"}
+      aria-label={
+        copied
+          ? "Copied to clipboard"
+          : failed
+            ? "Copy failed"
+            : "Copy capture ID to clipboard"
+      }
     >
       {copied ? (
         <ClipboardDocumentCheckIcon className="w-4 h-4 text-emerald-500" />
       ) : (
-        <ClipboardDocumentIcon className="w-4 h-4 text-stone-500 dark:text-slate-400" />
+        <ClipboardDocumentIcon
+          className={`w-4 h-4 ${failed ? "text-nx" : "text-stone-500 dark:text-slate-400"}`}
+        />
       )}
     </button>
   );
 }
 
-const CLOSE_DURATION = 150;
+const CLOSE_DURATION = 160;
 
 const SOURCES: Record<
   keyof CaptureIdsMetadata["sources"],
@@ -118,8 +136,13 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
   const [showInfo, setShowInfo] = useState(false);
   const parentRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const closingRef = useRef(false);
   const handleCloseRef = useRef(() => {});
+  // Tracks whether a mousedown started on the backdrop, so releasing a text
+  // selection that began inside the modal and ended on the backdrop doesn't
+  // close it (only a genuine backdrop click should).
+  const backdropDownRef = useRef(false);
 
   const handleClose = () => {
     if (closingRef.current) return;
@@ -145,9 +168,11 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
       });
   }, []);
 
+  // Move focus into the dialog as soon as it opens (the search input is always
+  // rendered, even while the table loads) so the focus trap has somewhere to land.
   useEffect(() => {
-    if (!loading) searchRef.current?.focus();
-  }, [loading]);
+    searchRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -155,6 +180,34 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Focus trap: keep Tab / Shift+Tab cycling within the dialog so keyboard users
+  // can't wander into the scroll-locked background page behind the scrim.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const focusables = dialog.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0]!;
+      const last = focusables[focusables.length - 1]!;
+      const active = document.activeElement;
+      if (e.shiftKey) {
+        if (active === first || !dialog.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !dialog.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    dialog.addEventListener("keydown", handleTab);
+    return () => dialog.removeEventListener("keydown", handleTab);
   }, []);
 
   useEffect(() => {
@@ -209,16 +262,31 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 ${isClosing ? "animate-fade-out" : "animate-fade-in"}`}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) handleClose();
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm ${isClosing ? "animate-fade-out" : "animate-fade-in"}`}
+      onMouseDown={(e) => {
+        backdropDownRef.current = e.target === e.currentTarget;
+      }}
+      onMouseUp={(e) => {
+        if (backdropDownRef.current && e.target === e.currentTarget) {
+          handleClose();
+        }
+        backdropDownRef.current = false;
       }}
     >
-      <div className={`w-full max-w-4xl h-[min(85vh,900px)] bg-white dark:bg-[#161b22] rounded-2xl border border-stone-200/80 dark:border-slate-700/50 shadow-2xl dark:shadow-black/50 flex flex-col overflow-hidden ${isClosing ? "animate-fade-out-down" : "animate-fade-up"}`}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="game-database-title"
+        className={`w-full max-w-4xl h-[min(85vh,900px)] bg-white dark:bg-[#161b22] rounded-2xl border border-stone-200/80 dark:border-slate-700/50 shadow-2xl dark:shadow-black/50 flex flex-col overflow-hidden ${isClosing ? "animate-modal-out" : "animate-modal-in"}`}
+      >
         {/* Header */}
         <div className="shrink-0 p-4 md:p-6 border-b border-stone-200 dark:border-slate-700/50">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-display font-bold text-stone-800 dark:text-slate-200">
+            <h2
+              id="game-database-title"
+              className="text-xl font-display font-bold text-stone-800 dark:text-slate-200"
+            >
               Game Database
             </h2>
             <button
@@ -238,6 +306,7 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
               type="text"
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
+              aria-label="Search games by name or capture ID"
               placeholder="Search by game name or capture ID..."
               className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-stone-100 dark:bg-slate-800/80 text-stone-800 dark:text-slate-200 border border-stone-200/50 dark:border-slate-700/30 placeholder:text-stone-400 dark:placeholder:text-slate-500 focus:outline-none focus-visible:outline-2 focus-visible:outline-nx text-sm"
             />

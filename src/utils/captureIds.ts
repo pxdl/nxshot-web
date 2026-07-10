@@ -30,7 +30,16 @@ export async function loadCaptureIds(): Promise<CaptureIds> {
       if (!response.ok) {
         throw new Error(`Failed to load capture IDs: ${response.status}`);
       }
-      const data: CaptureIds = await response.json();
+      const raw: unknown = await response.json();
+      // Keep only string values. A malformed deploy (values as objects/arrays)
+      // would otherwise reach the UI and crash React render ("Objects are not
+      // valid as a React child"). Cheap one-pass guard, runs once (cached).
+      const data: CaptureIds = {};
+      if (raw && typeof raw === "object") {
+        for (const [id, name] of Object.entries(raw as Record<string, unknown>)) {
+          if (typeof name === "string") data[id] = name;
+        }
+      }
       cache = data;
       return data;
     })

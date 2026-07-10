@@ -35,6 +35,7 @@
     "@types/wicg-file-system-access": "^2023.10.7",
     "@vitejs/plugin-react": "^5.2.0",
     "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.0",

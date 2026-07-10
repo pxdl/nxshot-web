@@ -82,6 +82,23 @@ describe("captureIds", () => {
     );
   });
 
+  it("should drop non-string values from a malformed response", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          ABC123: "Valid Game",
+          BAD1: { nested: "object" },
+          BAD2: 42,
+          BAD3: null,
+        }),
+    });
+
+    const result = await loadCaptureIds();
+
+    expect(result).toEqual({ ABC123: "Valid Game" });
+  });
+
   it("should clear cache correctly", async () => {
     const mockCaptureIds = { ABC123: "Test Game" };
 

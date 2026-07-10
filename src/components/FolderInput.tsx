@@ -21,6 +21,7 @@ const READING_MESSAGES = [
 
 interface FolderInputProps {
   onFilesSelected: (files: File[]) => void;
+  onError?: (message: string) => void;
   disabled?: boolean;
   children: ReactNode;
   variant?: ButtonVariant;
@@ -38,6 +39,7 @@ interface FolderInputProps {
  */
 export function FolderInput({
   onFilesSelected,
+  onError,
   disabled = false,
   children,
   variant = "secondary",
@@ -76,6 +78,14 @@ export function FolderInput({
       if (files.length > 0) {
         onFilesSelected(files);
       }
+    } catch (err) {
+      // Reading a handle rejects on real IO failures (card ejected mid-scan,
+      // permission revoked). Surface it instead of leaving the user staring at
+      // a spinner that silently resets with nothing to show.
+      console.error("Failed to read folder:", err);
+      onError?.(
+        "Couldn't read the folder. If it's on an SD card, make sure it's still connected and try again."
+      );
     } finally {
       setIsReading(false);
     }
@@ -199,6 +209,11 @@ export function FolderInput({
           {message}
         </p>
       )}
+      {/* Stable screen-reader status: the button's "(N found)" count updates
+          too fast to announce, so mirror just the reading state here. */}
+      <span className="sr-only" role="status" aria-live="polite">
+        {showLoading ? "Reading folder…" : ""}
+      </span>
     </>
   );
 }

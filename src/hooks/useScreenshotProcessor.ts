@@ -101,6 +101,23 @@ export function useScreenshotProcessor() {
 
     captureIdsRef.current = captureIds;
     const groups = groupFilesByGame(screenshots, captureIds);
+
+    if (groups.length === 0) {
+      // Files matched the capture name pattern but none parsed into a valid
+      // date, so every one was dropped during grouping. Without this guard the
+      // app lands in "ready" with zero groups and no branch of App renders —
+      // a dead end that only a page refresh escapes.
+      setGameGroups([]);
+      setSelectedGames(new Set());
+      setState((prev) => ({
+        ...prev,
+        status: "idle",
+        error:
+          "Found files that look like Switch captures, but none could be read. They may have been renamed or corrupted.",
+      }));
+      return;
+    }
+
     setGameGroups(groups);
     setSelectedGames(new Set(groups.map((g) => g.gameName)));
 
@@ -113,6 +130,14 @@ export function useScreenshotProcessor() {
         ? "Failed to load game database. Games will appear as 'Unknown'."
         : null,
     }));
+  };
+
+  /**
+   * Surface an error from an external read path (drag-and-drop, folder input)
+   * through the shared error channel so the UI can show it.
+   */
+  const reportError = (message: string) => {
+    setState((prev) => ({ ...prev, error: message }));
   };
 
   const toggleGame = (gameName: string) => {
@@ -154,6 +179,10 @@ export function useScreenshotProcessor() {
       ...prev,
       status: "loading",
       processingPhase: "Preparing download...",
+      // Reset counters so a repeat download doesn't briefly flash the previous
+      // run's 100% bar and stale counts before the first file reports progress.
+      currentFileIndex: 0,
+      totalFiles: filesToExport.length,
       error: null,
     }));
 
@@ -278,5 +307,6 @@ export function useScreenshotProcessor() {
     deselectAll,
     backToGallery,
     reset,
+    reportError,
   };
 }
