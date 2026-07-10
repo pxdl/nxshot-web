@@ -18,14 +18,14 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
-    "@tailwindcss/vite": "^4.2.1",
+    "@tailwindcss/vite": "^4.3.2",
     "@tanstack/react-table": "^8.21.3",
-    "@tanstack/react-virtual": "^3.13.23",
-    "fflate": "^0.8.2",
+    "@tanstack/react-virtual": "^3.14.5",
+    "fflate": "^0.8.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "streamsaver": "^2.0.6",
-    "tailwindcss": "^4.2.1"
+    "tailwindcss": "^4.3.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
@@ -36,10 +36,10 @@
     "@vitejs/plugin-react": "^5.2.0",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "prettier": "^3.8.1",
+    "prettier": "^3.9.5",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.57.0",
-    "vite": "^7.3.1",
-    "vitest": "^4.1.0"
+    "typescript-eslint": "^8.63.0",
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10"
   }
 }
