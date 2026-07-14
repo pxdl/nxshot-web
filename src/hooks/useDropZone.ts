@@ -24,16 +24,19 @@ export function useDropZone(
   const fileCountRef = useRef(0);
   const dragCounterRef = useRef(0);
   const callbackRef = useRef(onFilesCollected);
-  callbackRef.current = onFilesCollected;
 
   // Read the latest options from refs — the drop listener is registered once
   // (empty deps) so it must not close over stale prop values.
   const canAcceptDropRef = useRef(options.canAcceptDrop ?? true);
-  canAcceptDropRef.current = options.canAcceptDrop ?? true;
   const onErrorRef = useRef(options.onError);
-  onErrorRef.current = options.onError;
   // Guards against a second drop while a previous one is still being read.
   const isReadingRef = useRef(false);
+
+  useEffect(() => {
+    callbackRef.current = onFilesCollected;
+    canAcceptDropRef.current = options.canAcceptDrop ?? true;
+    onErrorRef.current = options.onError;
+  });
 
   // Sync fileCountRef → fileCount state on a 100ms interval while reading
   useEffect(() => {

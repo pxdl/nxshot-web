@@ -136,21 +136,22 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
   const [showInfo, setShowInfo] = useState(false);
   const parentRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const closingRef = useRef(false);
-  const handleCloseRef = useRef(() => {});
   // Tracks whether a mousedown started on the backdrop, so releasing a text
   // selection that began inside the modal and ended on the backdrop doesn't
   // close it (only a genuine backdrop click should).
   const backdropDownRef = useRef(false);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
     setIsClosing(true);
-    setTimeout(onClose, CLOSE_DURATION);
-  };
-  handleCloseRef.current = handleClose;
+    setTimeout(() => {
+      dialogRef.current?.close();
+      onClose();
+    }, CLOSE_DURATION);
+  }, [onClose]);
 
   useEffect(() => {
     loadCaptureIds()
@@ -168,55 +169,27 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
       });
   }, []);
 
-  // Move focus into the dialog as soon as it opens (the search input is always
-  // rendered, even while the table loads) so the focus trap has somewhere to land.
-  useEffect(() => {
-    searchRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleCloseRef.current();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  // Focus trap: keep Tab / Shift+Tab cycling within the dialog so keyboard users
-  // can't wander into the scroll-locked background page behind the scrim.
+  // Open the dialog modally and focus the search input.
+  // showModal() provides: focus trap, scroll lock, Escape (cancel event),
+  // and ::backdrop — no need for hand-rolled listeners.
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    const handleTab = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-      const focusables = dialog.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusables.length === 0) return;
-      const first = focusables[0]!;
-      const last = focusables[focusables.length - 1]!;
-      const active = document.activeElement;
-      if (e.shiftKey) {
-        if (active === first || !dialog.contains(active)) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else if (active === last || !dialog.contains(active)) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    dialog.addEventListener("keydown", handleTab);
-    return () => dialog.removeEventListener("keydown", handleTab);
+    dialog.showModal();
+    searchRef.current?.focus();
   }, []);
 
+  // Escape: prevent the native close so the exit animation can play first.
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const onCancel = (e: Event) => {
+      e.preventDefault();
+      handleClose();
     };
-  }, []);
+    dialog.addEventListener("cancel", onCancel);
+    return () => dialog.removeEventListener("cancel", onCancel);
+  }, [handleClose]);
 
   const columns = useMemo(
     () => [
@@ -261,8 +234,10 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
   });
 
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm ${isClosing ? "animate-fade-out" : "animate-fade-in"}`}
+    <dialog
+      ref={dialogRef}
+      data-closing={isClosing ? "true" : undefined}
+      aria-labelledby="game-database-title"
       onMouseDown={(e) => {
         backdropDownRef.current = e.target === e.currentTarget;
       }}
@@ -272,12 +247,9 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
         }
         backdropDownRef.current = false;
       }}
+      className="m-auto p-4 bg-transparent border-0 outline-none w-full h-full max-w-none flex items-center justify-center"
     >
       <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="game-database-title"
         className={`w-full max-w-4xl h-[min(85vh,900px)] bg-white dark:bg-[#161b22] rounded-2xl border border-stone-200/80 dark:border-slate-700/50 shadow-2xl dark:shadow-black/50 flex flex-col overflow-hidden ${isClosing ? "animate-modal-out" : "animate-modal-in"}`}
       >
         {/* Header */}
@@ -314,6 +286,7 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
               <button
                 type="button"
                 onClick={() => setGlobalFilter("")}
+                aria-label="Clear search"
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-stone-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
               >
                 <XMarkIcon className="w-4 h-4 text-stone-500 dark:text-slate-400" />
@@ -475,6 +448,6 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
           </>
         )}
       </div>
-    </div>
+    </dialog>
   );
 }

@@ -157,7 +157,7 @@ export function Gallery({
             key={group.gameName}
             group={group}
             selected={selectedGames.has(group.gameName)}
-            onToggle={() => onToggleGame(group.gameName)}
+            onToggle={onToggleGame}
             index={index}
             isTopGame={group.gameName === topGameName}
           />

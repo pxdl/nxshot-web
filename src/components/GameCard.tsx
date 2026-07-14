@@ -98,7 +98,7 @@ function useTabResumeKey(active: boolean): number {
 interface GameCardProps {
   group: GameGroup;
   selected: boolean;
-  onToggle: () => void;
+  onToggle: (gameName: string) => void;
   index: number;
   isTopGame: boolean;
 }
@@ -354,7 +354,7 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
   return (
     <button
       type="button"
-      onClick={onToggle}
+      onClick={() => onToggle(group.gameName)}
       onMouseEnter={handlePreviewStart}
       onMouseLeave={handlePreviewStop}
       onFocus={handlePreviewStart}

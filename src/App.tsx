@@ -11,6 +11,7 @@ import { Button } from "./components/Button";
 import { Card } from "./components/Card";
 import { DatabaseInfo } from "./components/DatabaseInfo";
 import { ErrorAlert } from "./components/ErrorAlert";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { FolderInput } from "./components/FolderInput";
 import { FolderStructureGuide } from "./components/FolderStructureGuide";
 import { FolderStructurePicker } from "./components/FolderStructurePicker";
@@ -220,17 +221,23 @@ export default function App() {
           >
             {error && <ErrorAlert message={error} className="mb-4" />}
 
-            <Suspense fallback={null}>
-              <Gallery
-                gameGroups={gameGroups}
-                selectedGames={selectedGames}
-                selectedFileCount={selectedFileCount}
-                totalFileCount={totalFileCount}
-                onToggleGame={toggleGame}
-                onSelectAll={selectAll}
-                onDeselectAll={deselectAll}
-              />
-            </Suspense>
+            <ErrorBoundary
+              fallback={
+                <ErrorAlert message="Something went wrong loading the gallery. Your files are safe — try selecting your folder again." />
+              }
+            >
+              <Suspense fallback={null}>
+                <Gallery
+                  gameGroups={gameGroups}
+                  selectedGames={selectedGames}
+                  selectedFileCount={selectedFileCount}
+                  totalFileCount={totalFileCount}
+                  onToggleGame={toggleGame}
+                  onSelectAll={selectAll}
+                  onDeselectAll={deselectAll}
+                />
+              </Suspense>
+            </ErrorBoundary>
 
             <div className="mt-8 flex flex-col items-center gap-4">
               {/* Safari Warning */}

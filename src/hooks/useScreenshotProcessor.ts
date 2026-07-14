@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { filterSwitchScreenshots } from "../utils/filesystem";
 import {
   parseScreenshotFilename,
@@ -140,7 +140,7 @@ export function useScreenshotProcessor() {
     setState((prev) => ({ ...prev, error: message }));
   };
 
-  const toggleGame = (gameName: string) => {
+  const toggleGame = useCallback((gameName: string) => {
     setSelectedGames((prev) => {
       const next = new Set(prev);
       if (next.has(gameName)) {
@@ -150,15 +150,15 @@ export function useScreenshotProcessor() {
       }
       return next;
     });
-  };
+  }, []);
 
-  const selectAll = () => {
+  const selectAll = useCallback(() => {
     setSelectedGames(new Set(gameGroups.map((g) => g.gameName)));
-  };
+  }, [gameGroups]);
 
-  const deselectAll = () => {
+  const deselectAll = useCallback(() => {
     setSelectedGames(new Set());
-  };
+  }, []);
 
   const downloadZip = async () => {
     // Prevent double-clicks

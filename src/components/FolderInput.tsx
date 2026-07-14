@@ -3,7 +3,7 @@ import {
   buttonBaseStyles,
   buttonVariantStyles,
   type ButtonVariant,
-} from "./Button";
+} from "./buttonStyles";
 import { Spinner } from "./Spinner";
 import { collectFilesFromDirectoryHandle } from "../utils/filesystem";
 import { loadCaptureIds } from "../utils/captureIds";
