@@ -186,6 +186,21 @@ export function useScreenshotProcessor() {
       error: null,
     }));
 
+    let progressFrame: number | null = null;
+    let latestProgress: ZipProgress | null = null;
+
+    const commitProgress = (progress: ZipProgress) => {
+      setState((prev) => ({
+        ...prev,
+        currentFileIndex: progress.current,
+        totalFiles: progress.total,
+        processingPhase:
+          progress.phase === "processing"
+            ? "Processing files..."
+            : "Finalizing...",
+      }));
+    };
+
     try {
       setState((prev) => ({
         ...prev,
@@ -193,15 +208,14 @@ export function useScreenshotProcessor() {
       }));
 
       const handleProgress = (progress: ZipProgress) => {
-        setState((prev) => ({
-          ...prev,
-          currentFileIndex: progress.current,
-          totalFiles: progress.total,
-          processingPhase:
-            progress.phase === "processing"
-              ? "Processing files..."
-              : "Finalizing...",
-        }));
+        latestProgress = progress;
+        if (progressFrame !== null) return;
+        progressFrame = requestAnimationFrame(() => {
+          progressFrame = null;
+          const nextProgress = latestProgress;
+          latestProgress = null;
+          if (nextProgress) commitProgress(nextProgress);
+        });
       };
 
       const parseWithCaptureIds = (filename: string) =>
@@ -236,6 +250,7 @@ export function useScreenshotProcessor() {
             : "An error occurred while creating the ZIP file.",
       }));
     } finally {
+      if (progressFrame !== null) cancelAnimationFrame(progressFrame);
       isProcessing.current = false;
     }
   };

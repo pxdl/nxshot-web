@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import {
   Squares2X2Icon,
   ChartBarIcon,
@@ -33,7 +33,7 @@ interface GalleryProps {
   onDeselectAll: () => void;
 }
 
-export function Gallery({
+export const Gallery = memo(function Gallery({
   gameGroups,
   selectedGames,
   selectedFileCount,
@@ -166,4 +166,4 @@ export function Gallery({
       {tab === "stats" && <CollectionStats gameGroups={gameGroups} />}
     </div>
   );
-}
+});

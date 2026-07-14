@@ -226,7 +226,20 @@ export default function App() {
                 <ErrorAlert message="Something went wrong loading the gallery. Your files are safe — try selecting your folder again." />
               }
             >
-              <Suspense fallback={null}>
+              <Suspense
+                fallback={
+                  <div
+                    className="flex min-h-48 flex-col items-center justify-center gap-3 text-stone-500 dark:text-slate-400"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <Spinner className="h-8 w-8 text-nx/50" />
+                    <span className="text-sm font-medium">
+                      Loading gallery…
+                    </span>
+                  </div>
+                }
+              >
                 <Gallery
                   gameGroups={gameGroups}
                   selectedGames={selectedGames}

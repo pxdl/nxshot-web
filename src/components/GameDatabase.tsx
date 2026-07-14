@@ -1,9 +1,15 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+  useDeferredValue,
+} from "react";
 import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
-  getFilteredRowModel,
   createColumnHelper,
   flexRender,
   type SortingState,
@@ -27,6 +33,7 @@ import type { CaptureIdsMetadata } from "../types";
 interface GameEntry {
   captureId: string;
   gameName: string;
+  searchText: string;
 }
 
 const columnHelper = createColumnHelper<GameEntry>();
@@ -35,21 +42,6 @@ const ROW_HEIGHT = 44;
 const estimateRowSize = () => ROW_HEIGHT;
 const coreRowModel = getCoreRowModel<GameEntry>();
 const sortedRowModel = getSortedRowModel<GameEntry>();
-const filteredRowModel = getFilteredRowModel<GameEntry>();
-
-// Splits the query into space-separated tokens and requires each to appear
-// as a substring anywhere in the game name or capture ID. This means partial
-// words match too — e.g. "rio kart" matches "Mario Kart" via "ma*rio*" and "*kart*".
-function multiWordFilter(
-  row: { getValue: (id: string) => unknown },
-  _columnId: string,
-  filterValue: string,
-): boolean {
-  const tokens = filterValue.toLowerCase().split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return true;
-  const haystack = `${row.getValue("gameName")} ${row.getValue("captureId")}`.toLowerCase();
-  return tokens.every((token) => haystack.includes(token));
-}
 
 function CopyButton({ text }: { text: string }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
@@ -133,6 +125,17 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
     { id: "gameName", desc: false },
   ]);
   const [globalFilter, setGlobalFilter] = useState("");
+  const deferredGlobalFilter = useDeferredValue(globalFilter);
+  const filteredData = useMemo(() => {
+    const tokens = deferredGlobalFilter
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (tokens.length === 0) return data;
+    return data.filter((entry) =>
+      tokens.every((token) => entry.searchText.includes(token)),
+    );
+  }, [data, deferredGlobalFilter]);
   const [showInfo, setShowInfo] = useState(false);
   const parentRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -159,6 +162,7 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
         const entries = Object.entries(ids).map(([captureId, gameName]) => ({
           captureId,
           gameName,
+          searchText: `${gameName} ${captureId}`.toLowerCase(),
         }));
         setData(entries);
         setLoading(false);
@@ -213,15 +217,12 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
   );
 
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns,
-    state: { sorting, globalFilter },
+    state: { sorting },
     onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
-    globalFilterFn: multiWordFilter,
     getCoreRowModel: coreRowModel,
     getSortedRowModel: sortedRowModel,
-    getFilteredRowModel: filteredRowModel,
   });
 
   const { rows } = table.getRowModel();
