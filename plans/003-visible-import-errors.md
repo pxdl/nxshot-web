@@ -7,11 +7,11 @@
 - **Rule**: Beyond the scan
 - **Estimated scope**: 1 existing source file, error-render placement only
 - **Depends on**: 001-shared-operation-ownership.md
-- **Execution base**: Orchestrator refreshes commit and changed line references after 001. May run alongside 002/009 because their files are distinct. Must land before 006; do not edit App concurrently with 001 or 006.
+- **Verified execution source**: `6d06d8bd447a64c05d65ba4c088c46c303bae8b9` includes integrated 001 (`6e9b909`); App excerpts/lines match it. Independent 004/005/007/008 ancestors are authorized. Launch may use a plans-only descendant. May run alongside 002/009, but before 006; no concurrent App editor.
 
 ## Problem
 
-`App` preserves Gallery's mounted state/cache but hides its wrapper outside the ready view. Audit baseline `src/App.tsx:216-222`:
+`App` keeps Gallery mounted for caching but hides its wrapper outside ready. Current `src/App.tsx:210-216` after 001:
 
 ```tsx
 {/* Gallery State — kept mounted to preserve thumbnail cache */}
@@ -23,17 +23,17 @@
     {error && <ErrorAlert message={error} className="mb-4" />}
 ```
 
-The other shared-error renderer is inside the idle/scanning card at line 210:
+The other shared-error renderer is inside the idle/scanning card at `src/App.tsx:204`:
 
 ```tsx
 {error && <ErrorAlert message={error} />}
 ```
 
-The Done card at lines 374-417 offers another FolderInput but has no visible error renderer. After an in-memory successful ZIP, a simulated disconnected-card read set the shared error, but the ErrorAlert existed only under the hidden gallery and was absent from `main.innerText`/visible UI. The user still saw Done with no explanation. 001 changes how scoped read failures reach processor error state; it does not fix this placement.
+The current Done card at `src/App.tsx:368-412` offers another FolderInput with no visible error renderer. Audit reproduction completed an in-memory ZIP, then rejected a disconnected-card read: the shared error appeared only under the hidden gallery, not in visible UI. 001 changes scoped read-error ownership, not this placement.
 
 ## Target
 
-Render the shared `error` exactly once OUTSIDE status-specific views. Insert the following immediately after the existing header `</div>` at baseline line 172, before the `Idle / Scanning State` comment:
+Render shared `error` exactly once OUTSIDE status views. Insert immediately after the header `</div>` at `src/App.tsx:167`, before the `Idle / Scanning State` comment:
 
 ```tsx
 {error && (
@@ -45,7 +45,7 @@ Render the shared `error` exactly once OUTSIDE status-specific views. Insert the
 
 Delete the two old shared-error placements quoted above; do not add another error placement in Done. Keep Gallery's hidden/mounted behavior unchanged. Do not change ErrorAlert itself: `src/components/ErrorAlert.tsx:47-59` already uses `role="alert"`, React-escaped text, correct variant colors and optional children.
 
-Keep the Gallery ErrorBoundary fallback (baseline App lines 224-228) intact: it represents a separate render failure, not the shared operation error. Plan 006 owns that fallback. Do not change warning banners or database modal fallback.
+Keep the Gallery ErrorBoundary fallback at `src/App.tsx:218-222` intact. It represents a different render failure and belongs to 006. Do not change warning banners or database modality.
 
 ## Repo conventions to follow
 

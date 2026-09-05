@@ -7,40 +7,58 @@
 - **Rule**: Beyond the scan
 - **Estimated scope**: 2 existing source files; remove empty-result bypasses
 - **Depends on**: 001-shared-operation-ownership.md
-- **Execution base**: The orchestrator must set this to the integrated commit containing 001 and refresh changed excerpts before launch. Only listed dependency changes and plan-only commits are authorized drift. Do not launch concurrently with 001.
+- **Verified execution source**: `6d06d8bd447a64c05d65ba4c088c46c303bae8b9` includes reviewed/integrated 001 (`6e9b909`). Reader excerpts below match it. Plans 004/005/007/008 are authorized independent ancestors. Launch may use the plans-only descendant supplied at dispatch.
 
 ## Problem
 
-At the audit baseline, native FolderInput bypasses processor handling for an empty selected directory (`src/components/FolderInput.tsx:75-80`):
+After 001, native enumeration still cancels its operation for an empty result (`src/components/FolderInput.tsx:93-102`):
 
 ```tsx
 const files = await collectFilesFromDirectoryHandle(dirHandle, () => {
-  fileCountRef.current++;
+  if (operationRef.current === operation) fileCountRef.current++;
 });
+if (operationRef.current !== operation) return;
+setIsReading(false);
 if (files.length > 0) {
-  onFilesSelected(files);
+  await operation.complete(files);
+} else {
+  operation.cancel();
 }
 ```
 
-The fallback at lines 149-152 also bypasses an empty FileList:
+The fallback (`src/components/FolderInput.tsx:184-195`) conflates a non-null empty FileList with cancellation:
 
 ```tsx
+const operation = operationRef.current;
+operationRef.current = null;
 const fileList = event.target.files;
-if (!fileList || fileList.length === 0) return;
+const files = operation && fileList ? Array.from(fileList) : [];
+event.target.value = "";
 
-onFilesSelected(Array.from(fileList));
-```
-
-`src/hooks/useDropZone.ts:110-113` does the same:
-
-```tsx
-const allFiles = (await Promise.all(promises)).flat();
-if (allFiles.length > 0) {
-  callbackRef.current(allFiles);
+if (operation === null) return;
+if (files.length > 0) {
+  await operation.complete(files);
+} else {
+  operation.cancel();
 }
 ```
 
-Browser evidence: completing three separate native empty-directory enumerations produced no alert. When replacing a populated collection, this bypass also leaves the old collection selected. `src/hooks/useScreenshotProcessor.ts:68-85` already clears old groups/selection and reports `No Nintendo Switch screenshots found in this folder.` when given an empty array, but the callers do not reach it.
+The dropped-directory completion at `src/hooks/useDropZone.ts:101-110` has the same bypass:
+
+```tsx
+const allFiles = (await Promise.all(
+  entries.map((entry) => collectFilesFromEntry(entry, onFileFound))
+)).flat();
+if (operationRef.current !== operation) return;
+setIsReading(false);
+if (allFiles.length > 0) {
+  await operation.complete(allFiles);
+} else {
+  operation.cancel();
+}
+```
+
+Verified audit behavior: empty native enumerations show no alert and retain an old collection. The current internal processor at `src/hooks/useScreenshotProcessor.ts:89-116` clears old groups/selection and reports `No Nintendo Switch screenshots found in this folder.` for an empty array, but callers bypass it.
 
 001 replaces the unscoped callbacks with this exact owned-import interface from `src/types/index.ts`:
 
@@ -60,8 +78,9 @@ For a successfully enumerated native directory, always complete, including zero 
 
 ```tsx
 const files = await collectFilesFromDirectoryHandle(dirHandle, () => {
-  fileCountRef.current++;
+  if (operationRef.current === operation) fileCountRef.current++;
 });
+if (operationRef.current !== operation) return;
 setIsReading(false);
 await operation.complete(files);
 ```
@@ -71,7 +90,11 @@ Retain 001's existing count resets, scoped ref clearing, catch/finally, and owne
 For a dropped directory, always complete the collected array:
 
 ```tsx
-const allFiles = (await Promise.all(promises)).flat();
+const allFiles = (await Promise.all(
+  entries.map((entry) => collectFilesFromEntry(entry, onFileFound))
+)).flat();
+if (operationRef.current !== operation) return;
+setIsReading(false);
 await operation.complete(allFiles);
 ```
 
@@ -80,21 +103,35 @@ Preserve the no-usable-entry early return for non-file drops. A drop containing 
 For the fallback input, a real `change` event with a non-null FileList is a selection outcome even if its length is zero. Its owned operation must receive `Array.from(fileList)` without a length guard. A missing FileList is not a selection and must cancel/release the operation. Keep 001's explicit `cancel` event path silent and distinct:
 
 ```tsx
-const fileList = event.target.files;
-if (!fileList) {
-  operation.cancel();
-  return;
-}
-await operation.complete(Array.from(fileList));
+const handleFallbackChange = async (
+  event: React.ChangeEvent<HTMLInputElement>
+) => {
+  dialogOpenRef.current = false;
+  clearTimeout(focusTimerRef.current);
+  setIsReading(false);
+
+  const operation = operationRef.current;
+  operationRef.current = null;
+  const fileList = event.target.files;
+  const files = operation && fileList ? Array.from(fileList) : null;
+  event.target.value = "";
+
+  if (operation === null) return;
+  if (files === null) {
+    operation.cancel();
+    return;
+  }
+  await operation.complete(files);
+};
 ```
 
-This fragment belongs after 001's retrieval of the owned operation and before/within its guaranteed input/ref cleanup. Reset `event.target.value` and `dialogOpenRef` on every consumed change path. Preserve `cancelledRef`/focus-timer guards so a later window focus cannot restart Reading. Do not invent an empty-folder result from focus/timeout heuristics: browsers that emit only a cancel event provide no reliable empty-selection signal, and explicit cancel must remain silent.
+Snapshot the FileList before clearing the input value, as shown. Preserve the explicit cancel handler and focus-timer cleanup so a later window focus cannot restart Reading. Do not infer empty selections from focus/timeouts: if a browser emits only cancel, there is no reliable empty-selection signal, and explicit cancellation must remain silent.
 
 The processor's existing empty-capture message and group/selection reset are the canonical repo behavior. Do not add a second empty-folder message or move this domain check into a new helper. After empty completion, `status` must be idle, old groups and selections must be gone, and `isBusy` must be false. Nonempty folders containing no valid captures continue through the same existing processor behavior.
 
 ## Repo conventions to follow
 
-- Existing processor empty-input branch: `src/hooks/useScreenshotProcessor.ts:68-85` at audit baseline, updated only for ownership by 001.
+- Existing processor empty-input branch: `src/hooks/useScreenshotProcessor.ts:89-116` in 001's verified dependency source.
 - Scoped operation complete/cancel/fail contract introduced by 001; retain synchronous admission and operation-specific cleanup.
 - Use current user-facing ErrorAlert path. 003 independently improves error placement; this plan does not edit App.
 - Keep TypeScript type imports and current native/fallback feature detection.
