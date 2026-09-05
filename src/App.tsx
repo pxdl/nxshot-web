@@ -11,6 +11,7 @@ import { Button } from "./components/Button";
 import { Card } from "./components/Card";
 import { DatabaseInfo } from "./components/DatabaseInfo";
 import { ErrorAlert } from "./components/ErrorAlert";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { FolderInput } from "./components/FolderInput";
 import { FolderStructureGuide } from "./components/FolderStructureGuide";
 import { FolderStructurePicker } from "./components/FolderStructurePicker";
@@ -39,6 +40,7 @@ const READING_MESSAGES = [
 export default function App() {
   const {
     status,
+    isBusy,
     error,
     gameGroups,
     selectedGames,
@@ -53,23 +55,17 @@ export default function App() {
     totalFileCount,
     folderStructure,
     setFolderStructure,
-    processFiles,
+    beginImport,
     downloadZip,
     toggleGame,
     selectAll,
     deselectAll,
     backToGallery,
-    reportError,
   } = useScreenshotProcessor();
 
-  const canAcceptDrop =
-    status !== "scanning" && status !== "loading" && status !== "processing";
-  const { isDragging, isReading: isReadingDrop, fileCount: dropFileCount } = useDropZone(
-    (files) => {
-      if (canAcceptDrop) processFiles(files);
-    },
-    { canAcceptDrop, onError: reportError }
-  );
+  const canAcceptDrop = !isBusy;
+  const { isDragging, isReading: isReadingDrop, fileCount: dropFileCount } =
+    useDropZone(beginImport, { canAcceptDrop });
 
   const { message: dropMessage, visible: dropMessageVisible } =
     useCyclingMessage(READING_MESSAGES, isReadingDrop);
@@ -170,6 +166,12 @@ export default function App() {
           </p>
         </div>
 
+        {error && (
+          <div className={`w-full mb-4 ${isGalleryView ? "max-w-6xl" : "max-w-md"}`}>
+            <ErrorAlert message={error} />
+          </div>
+        )}
+
         {/* Idle / Scanning State */}
         {(status === "idle" || status === "scanning") && (
           <div
@@ -182,9 +184,8 @@ export default function App() {
                   {status === "idle" && <FolderStructureGuide />}
 
                   <FolderInput
-                    onFilesSelected={processFiles}
-                    onError={reportError}
-                    disabled={status === "scanning"}
+                    onImportStart={beginImport}
+                    disabled={isBusy}
                     variant="secondary"
                     icon={
                       status === "scanning" ? (
@@ -205,8 +206,6 @@ export default function App() {
                     </p>
                   )}
                 </div>
-
-                {error && <ErrorAlert message={error} />}
               </div>
             </Card>
           </div>
@@ -218,19 +217,49 @@ export default function App() {
             className={`w-full max-w-6xl ${isGalleryView ? "animate-fade-up" : "hidden"}`}
             style={isGalleryView ? { animationDelay: "0.1s" } : undefined}
           >
-            {error && <ErrorAlert message={error} className="mb-4" />}
-
-            <Suspense fallback={null}>
-              <Gallery
-                gameGroups={gameGroups}
-                selectedGames={selectedGames}
-                selectedFileCount={selectedFileCount}
-                totalFileCount={totalFileCount}
-                onToggleGame={toggleGame}
-                onSelectAll={selectAll}
-                onDeselectAll={deselectAll}
-              />
-            </Suspense>
+            <ErrorBoundary
+              fallback={
+                <div className="space-y-3">
+                  <ErrorAlert>
+                    <p className="font-semibold">The gallery could not be loaded.</p>
+                    <p className="mt-1">
+                      Your files are unchanged. Reload this page, then select your folder again.
+                    </p>
+                  </ErrorAlert>
+                  <Button
+                    onClick={() => window.location.reload()}
+                    variant="secondary"
+                  >
+                    Reload page
+                  </Button>
+                </div>
+              }
+            >
+              <Suspense
+                fallback={
+                  <div
+                    className="flex min-h-48 flex-col items-center justify-center gap-3 text-stone-500 dark:text-slate-400"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <Spinner className="h-8 w-8 text-nx/50" />
+                    <span className="text-sm font-medium">
+                      Loading gallery…
+                    </span>
+                  </div>
+                }
+              >
+                <Gallery
+                  gameGroups={gameGroups}
+                  selectedGames={selectedGames}
+                  selectedFileCount={selectedFileCount}
+                  totalFileCount={totalFileCount}
+                  onToggleGame={toggleGame}
+                  onSelectAll={selectAll}
+                  onDeselectAll={deselectAll}
+                />
+              </Suspense>
+            </ErrorBoundary>
 
             <div className="mt-8 flex flex-col items-center gap-4">
               {/* Safari Warning */}
@@ -261,7 +290,7 @@ export default function App() {
                 <Button
                   onClick={downloadZip}
                   variant="primary"
-                  disabled={selectedFileCount === 0}
+                  disabled={isBusy || selectedFileCount === 0}
                   icon={<ArrowDownTrayIcon className="w-5 h-5" />}
                 >
                   {selectedFileCount > 0
@@ -272,8 +301,8 @@ export default function App() {
 
               <div className="w-full max-w-md">
                 <FolderInput
-                  onFilesSelected={processFiles}
-                  onError={reportError}
+                  onImportStart={beginImport}
+                  disabled={isBusy}
                   variant="ghost"
                   icon={<FolderIcon className="w-5 h-5" />}
                 >
@@ -376,6 +405,7 @@ export default function App() {
                 {gameGroups.length > 0 && (
                   <Button
                     onClick={backToGallery}
+                    disabled={isBusy}
                     variant="ghost"
                     icon={<ArrowUturnLeftIcon className="w-5 h-5" />}
                   >
@@ -384,8 +414,8 @@ export default function App() {
                 )}
 
                 <FolderInput
-                  onFilesSelected={processFiles}
-                  onError={reportError}
+                  onImportStart={beginImport}
+                  disabled={isBusy}
                   variant="secondary"
                   icon={<FolderIcon className="w-5 h-5" />}
                 >

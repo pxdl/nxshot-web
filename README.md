@@ -45,6 +45,8 @@ The database is automatically updated weekly via GitHub Actions, pulling from:
 
 ## Development
 
+Use the pnpm version pinned in `package.json`; pnpm 9 does not support this project's configuration-only `pnpm-workspace.yaml`.
+
 ```bash
 pnpm install
 pnpm dev

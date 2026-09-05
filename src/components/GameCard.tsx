@@ -1,125 +1,47 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useMemo } from "react";
 import { CheckIcon, VideoCameraIcon, TrophyIcon } from "@heroicons/react/24/solid";
 import { Spinner } from "./Spinner";
 import type { GameGroup } from "../types";
-import { IMAGE_EXT, VIDEO_EXT, SHORT_MONTH_NAMES } from "../constants";
+import { SHORT_MONTH_NAMES } from "../constants";
+import { useGamePreview } from "../hooks/useGamePreview";
+import { useGameThumbnail } from "../hooks/useGameThumbnail";
+import { SUPPORTS_RVFC } from "../utils/gameCardMedia";
 
-const SLIDESHOW_INTERVAL = 1500;
-const VIDEO_PREVIEW_DURATION = 5000;
-const CROSSFADE_MS = 150;
 const MAX_STAGGER_INDEX = 15;
 const STAGGER_DELAY_S = 0.04;
-const THUMB_W = 320;
-const SUPPORTS_RVFC =
-  typeof HTMLVideoElement !== "undefined" &&
-  "requestVideoFrameCallback" in HTMLVideoElement.prototype;
-
-
-const prefersReducedMotion = () =>
-  typeof matchMedia !== "undefined" &&
-  matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-let _snapshotCanvas: HTMLCanvasElement | null = null;
-function snapshotVideoFrame(video: HTMLVideoElement): string | null {
-  if (!video.videoWidth) return null;
-  if (!_snapshotCanvas) _snapshotCanvas = document.createElement("canvas");
-  _snapshotCanvas.width = video.videoWidth;
-  _snapshotCanvas.height = video.videoHeight;
-  _snapshotCanvas.getContext("2d")!.drawImage(video, 0, 0);
-  return _snapshotCanvas.toDataURL("image/jpeg", 0.85);
-}
-
-// Throttle concurrent video thumbnail extractions to prevent Safari page freeze
-const MAX_VIDEO_THUMB_CONCURRENCY = 2;
-let _activeVideoThumbs = 0;
-const _pendingVideoThumbs: (() => void)[] = [];
-
-function acquireVideoThumbSlot(): { promise: Promise<void>; cancel: () => void } {
-  if (_activeVideoThumbs < MAX_VIDEO_THUMB_CONCURRENCY) {
-    _activeVideoThumbs++;
-    return { promise: Promise.resolve(), cancel: () => {} };
-  }
-  let entry: (() => void) | null = null;
-  const promise = new Promise<void>((resolve) => {
-    entry = resolve;
-    _pendingVideoThumbs.push(resolve);
-  });
-  return {
-    promise,
-    cancel: () => {
-      const idx = _pendingVideoThumbs.indexOf(entry!);
-      if (idx !== -1) _pendingVideoThumbs.splice(idx, 1);
-    },
-  };
-}
-
-function releaseVideoThumbSlot(): void {
-  const next = _pendingVideoThumbs.shift();
-  if (next) next();
-  else _activeVideoThumbs--;
-}
-
-// Single shared visibilitychange listener for tab resume detection (lazy)
-let _tabResumeCount = 0;
-let _listenerRegistered = false;
-const _tabResumeCallbacks = new Set<() => void>();
-
-function ensureVisibilityListener(): void {
-  if (_listenerRegistered) return;
-  _listenerRegistered = true;
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) {
-      _tabResumeCount++;
-      for (const fn of _tabResumeCallbacks) fn();
-    }
-  });
-}
-
-function useTabResumeKey(active: boolean): number {
-  const [key, setKey] = useState(_tabResumeCount);
-  const lastSeenRef = useRef(_tabResumeCount);
-  useEffect(() => {
-    if (!active) return;
-    ensureVisibilityListener();
-    if (_tabResumeCount !== lastSeenRef.current) {
-      lastSeenRef.current = _tabResumeCount;
-      setKey(_tabResumeCount);
-    }
-    const fn = () => {
-      lastSeenRef.current = _tabResumeCount;
-      setKey(_tabResumeCount);
-    };
-    _tabResumeCallbacks.add(fn);
-    return () => { _tabResumeCallbacks.delete(fn); };
-  }, [active]);
-  return key;
-}
 
 interface GameCardProps {
   group: GameGroup;
   selected: boolean;
-  onToggle: () => void;
+  onToggle: (gameName: string) => void;
   index: number;
   isTopGame: boolean;
 }
 
 export const GameCard = memo(function GameCard({ group, selected, onToggle, index, isTopGame }: GameCardProps) {
-  const { thumbnailSource, imageCount, videoCount } = useMemo(() => {
-    let thumbnail: { file: File; type: "image" | "video" } | null = null;
-    let images = 0;
-    let videos = 0;
-    for (const f of group.files) {
-      const name = f.file.name;
-      if (name.endsWith(IMAGE_EXT)) {
-        images++;
-        if (!thumbnail) thumbnail = { file: f.file, type: "image" };
-      } else if (name.endsWith(VIDEO_EXT)) {
-        videos++;
-        if (!thumbnail) thumbnail = { file: f.file, type: "video" };
-      }
-    }
-    return { thumbnailSource: thumbnail, imageCount: images, videoCount: videos };
-  }, [group.files]);
+  const {
+    thumbnailUrl,
+    thumbnailType,
+    imageCount,
+    videoCount,
+    tabResumeKey,
+  } = useGameThumbnail(group.files);
+
+  const {
+    isPreviewing,
+    slideIndex,
+    slideUrl,
+    slideLoaded,
+    prevSnapshotUrl,
+    slideIsVideo,
+    handleVideoRef,
+    handleVideoEnded,
+    handleSlideReady,
+    handlePreviewStart,
+    handlePreviewStop,
+  } = useGamePreview(group.files);
+
+  const fileCount = group.files.length;
 
   const latestDate = useMemo(() => {
     if (!group.latestTimestamp) return null;
@@ -128,224 +50,6 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
     return `${SHORT_MONTH_NAMES[month]} ${year}`;
   }, [group.latestTimestamp]);
 
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-
-  // Restart spinner animation on Safari tab resume (single shared listener)
-  const tabResumeKey = useTabResumeKey(!thumbnailUrl);
-
-  useEffect(() => {
-    if (!thumbnailSource) return;
-
-    if (thumbnailSource.type === "image") {
-      const url = URL.createObjectURL(thumbnailSource.file);
-      setThumbnailUrl(url);
-      return () => URL.revokeObjectURL(url);
-    }
-
-    // Extract first frame from video (throttled for Safari performance)
-    let cancelled = false;
-    let cleanup: (() => void) | null = null;
-    const { promise: slotReady, cancel: cancelSlot } = acquireVideoThumbSlot();
-
-    slotReady.then(() => {
-      if (cancelled) { releaseVideoThumbSlot(); return; }
-
-      const videoUrl = URL.createObjectURL(thumbnailSource.file);
-      const video = document.createElement("video");
-      video.muted = true;
-      video.preload = "metadata";
-      // Attach to DOM so Safari composites frames — requestVideoFrameCallback
-      // only fires for videos the browser is actively rendering.
-      video.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1";
-      video.setAttribute("aria-hidden", "true");
-      document.body.appendChild(video);
-
-      let cleaned = false;
-      let timerId: ReturnType<typeof setTimeout> | undefined;
-      const cleanupVideo = () => {
-        if (cleaned) return;
-        cleaned = true;
-        clearTimeout(timerId);
-        URL.revokeObjectURL(videoUrl);
-        video.removeAttribute("src");
-        video.load();
-        video.remove();
-        releaseVideoThumbSlot();
-      };
-      cleanup = cleanupVideo;
-
-      let captured = false;
-      const captureFrame = () => {
-        if (captured || cancelled || !video.videoWidth) { cleanupVideo(); return; }
-        captured = true;
-        const thumbH = Math.round((video.videoHeight / video.videoWidth) * THUMB_W);
-        const canvas = document.createElement("canvas");
-        canvas.width = THUMB_W;
-        canvas.height = thumbH;
-        canvas.getContext("2d")!.drawImage(video, 0, 0, THUMB_W, thumbH);
-        canvas.toBlob((blob) => {
-          cleanupVideo();
-          if (blob && !cancelled) {
-            setThumbnailUrl(URL.createObjectURL(blob));
-          }
-        }, "image/jpeg");
-      };
-
-      // rVFC fires when the frame is composited (reliable now that the video
-      // is in the DOM). Timeout runs in parallel as a fallback — the `captured`
-      // guard ensures only the first to fire does the work.
-      video.addEventListener("seeked", () => {
-        if (cancelled) { cleanupVideo(); return; }
-        if (SUPPORTS_RVFC) video.requestVideoFrameCallback(captureFrame);
-        timerId = setTimeout(captureFrame, 200);
-      }, { once: true });
-
-      video.addEventListener("error", () => cleanupVideo(), { once: true });
-
-      video.addEventListener("loadedmetadata", () => {
-        video.currentTime = 0.1;
-      }, { once: true });
-
-      video.src = videoUrl;
-    });
-
-    return () => {
-      cancelled = true;
-      cancelSlot();
-      cleanup?.();
-      setThumbnailUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
-      });
-    };
-  }, [thumbnailSource]);
-
-  // --- Hover slideshow ---
-  const [isHovering, setIsHovering] = useState(false);
-  const [slideIndex, setSlideIndex] = useState(0);
-  const [slideUrl, setSlideUrl] = useState<string | null>(null);
-  const [slideLoaded, setSlideLoaded] = useState(false);
-  const [prevSnapshotUrl, setPrevSnapshotUrl] = useState<string | null>(null);
-  const currentIsVideoRef = useRef(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  // Cache blob URLs per File so they're reused across hovers instead of
-  // creating (and re-buffering) a new URL every time.
-  const blobCacheRef = useRef(new Map<File, string>());
-  const getBlobUrl = useCallback((file: File) => {
-    let url = blobCacheRef.current.get(file);
-    if (!url) {
-      url = URL.createObjectURL(file);
-      blobCacheRef.current.set(file, url);
-    }
-    return url;
-  }, []);
-
-  const fileCount = group.files.length;
-
-  const stopVideo = useCallback(() => {
-    const v = videoRef.current;
-    if (v) {
-      v.pause();
-      v.removeAttribute("src");
-      v.load();
-    }
-  }, []);
-
-  const advanceSlide = useCallback(() => {
-    setSlideIndex((prev) => (prev + 1) % fileCount);
-  }, [fileCount]);
-
-  useEffect(() => {
-    if (!isHovering || fileCount === 0) {
-      stopVideo();
-      setSlideUrl(null);
-      setPrevSnapshotUrl(null);
-      setSlideIndex(0);
-      clearTimeout(timerRef.current);
-      clearTimeout(fadeTimerRef.current);
-      return;
-    }
-
-    const file = group.files[slideIndex];
-    if (!file) return;
-    const isVideo = file.file.name.endsWith(VIDEO_EXT);
-
-    // Snapshot outgoing slide to hold it visible during the crossfade.
-    // Don't call stopVideo() here — it would blank the <video> element
-    // before React re-renders, flashing the default thumbnail. React
-    // handles unmounting the old element via the key={slideUrl} change.
-    if (currentIsVideoRef.current && videoRef.current) {
-      setPrevSnapshotUrl(snapshotVideoFrame(videoRef.current));
-    } else if (slideUrl) {
-      setPrevSnapshotUrl(slideUrl);
-    }
-
-    const url = getBlobUrl(file.file);
-    currentIsVideoRef.current = isVideo;
-    setSlideLoaded(false);
-    setSlideUrl(url);
-
-    if (fileCount > 1) {
-      timerRef.current = setTimeout(advanceSlide, isVideo ? VIDEO_PREVIEW_DURATION : SLIDESHOW_INTERVAL);
-    }
-
-    return () => {
-      clearTimeout(timerRef.current);
-    };
-  }, [isHovering, slideIndex, group.files, fileCount, stopVideo, getBlobUrl, advanceSlide]); // eslint-disable-line react-hooks/exhaustive-deps -- slideUrl read is intentional for snapshot
-
-  // Revoke all cached blob URLs on unmount
-  useEffect(() => {
-    // Capture the Map now; it's created once via useRef and never reassigned,
-    // so reading it in cleanup is safe (and keeps exhaustive-deps happy).
-    const blobCache = blobCacheRef.current;
-    return () => {
-      clearTimeout(fadeTimerRef.current);
-      stopVideo();
-      for (const url of blobCache.values()) {
-        URL.revokeObjectURL(url);
-      }
-      blobCache.clear();
-    };
-  }, [stopVideo]);
-
-  const handleSlideReady = useCallback(() => {
-    setSlideLoaded(true);
-    clearTimeout(fadeTimerRef.current);
-    fadeTimerRef.current = setTimeout(() => {
-      setPrevSnapshotUrl(null);
-    }, CROSSFADE_MS);
-  }, []);
-
-  const handleVideoRef = useCallback(
-    (el: HTMLVideoElement | null) => {
-      videoRef.current = el;
-      if (el && SUPPORTS_RVFC) {
-        el.requestVideoFrameCallback(handleSlideReady);
-      }
-    },
-    [handleSlideReady],
-  );
-
-  const handleVideoEnded = useCallback(() => {
-    if (fileCount > 1) {
-      clearTimeout(timerRef.current);
-      advanceSlide();
-    }
-  }, [fileCount, advanceSlide]);
-
-  // Start the preview on hover OR keyboard focus (keyboard/touch users can't
-  // hover). Suppress the JS-driven slideshow/video autoplay entirely under
-  // prefers-reduced-motion — the static thumbnail stays put.
-  const handlePreviewStart = useCallback(() => {
-    if (!prefersReducedMotion()) setIsHovering(true);
-  }, []);
-  const handlePreviewStop = useCallback(() => setIsHovering(false), []);
-
-  const slideIsVideo = slideUrl != null && currentIsVideoRef.current;
   const mediaClass = `w-full h-full object-cover absolute inset-0 z-[1] ${prevSnapshotUrl ? "transition-opacity duration-150" : ""} ${slideLoaded ? "opacity-100" : "opacity-0"}`;
   const prevMediaClass = "w-full h-full object-cover absolute inset-0 z-[1] pointer-events-none";
 
@@ -354,7 +58,7 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
   return (
     <button
       type="button"
-      onClick={onToggle}
+      onClick={() => onToggle(group.gameName)}
       onMouseEnter={handlePreviewStart}
       onMouseLeave={handlePreviewStop}
       onFocus={handlePreviewStart}
@@ -378,12 +82,12 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
         selected ? "" : "grayscale-[0.5] brightness-[0.8]"
       }`}>
         {/* Previous slide snapshot (holds during transition to prevent flash) */}
-        {isHovering && prevSnapshotUrl && (
+        {isPreviewing && prevSnapshotUrl && (
           <img src={prevSnapshotUrl} alt="" className={prevMediaClass} />
         )}
 
         {/* Current slide */}
-        {isHovering && slideUrl && (
+        {isPreviewing && slideUrl && (
           slideIsVideo ? (
             <video
               key={slideUrl}
@@ -418,7 +122,7 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200 dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-700">
             <div className="flex flex-col items-center gap-1.5 px-3">
-              {thumbnailSource?.type === "video" ? (
+              {thumbnailType === "video" ? (
                 <Spinner key={tabResumeKey} className="w-6 h-6 text-stone-300 dark:text-slate-600" />
               ) : (
                 <VideoCameraIcon className="w-6 h-6 text-stone-300 dark:text-slate-600" />
@@ -431,7 +135,7 @@ export const GameCard = memo(function GameCard({ group, selected, onToggle, inde
         )}
 
         {/* Slideshow dots (up to 12 files) */}
-        {isHovering && fileCount > 1 && fileCount <= 12 && (
+        {isPreviewing && fileCount > 1 && fileCount <= 12 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-[2] bg-black/30 backdrop-blur-sm rounded-full px-2 py-1">
             {group.files.map((_, i) => (
               <div

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { filterSwitchScreenshots } from "../utils/filesystem";
 import {
   parseScreenshotFilename,
@@ -7,7 +7,13 @@ import {
 } from "../utils/screenshot";
 import { loadCaptureIds } from "../utils/captureIds";
 import type { ZipProgress } from "../utils/zip";
-import type { CaptureIds, FolderStructure, GameGroup, Screenshot } from "../types";
+import type {
+  CaptureIds,
+  FolderImportOperation,
+  FolderStructure,
+  GameGroup,
+  Screenshot,
+} from "../types";
 
 export type ProcessorStatus =
   | "idle"
@@ -20,6 +26,7 @@ export type ProcessorStatus =
 
 export interface ScreenshotProcessorState {
   status: ProcessorStatus;
+  isBusy: boolean;
   error: string | null;
   currentFileIndex: number;
   totalFiles: number;
@@ -31,6 +38,7 @@ export interface ScreenshotProcessorState {
 export function useScreenshotProcessor() {
   const [state, setState] = useState<ScreenshotProcessorState>({
     status: "idle",
+    isBusy: false,
     error: null,
     currentFileIndex: 0,
     totalFiles: 0,
@@ -44,103 +52,157 @@ export function useScreenshotProcessor() {
   const [folderStructure, setFolderStructure] =
     useState<FolderStructure>("by-game");
 
-  // Track current operation to prevent race conditions
+  // One synchronous owner spans folder reading, scanning, and ZIP export.
   const currentOperationId = useRef(0);
-  const isProcessing = useRef(false);
+  const activeOperationId = useRef<number | null>(null);
   const captureIdsRef = useRef<CaptureIds>({});
+
+  const ownsOperation = useCallback(
+    (id: number) => activeOperationId.current === id,
+    [],
+  );
+
+  const beginOperation = useCallback((): number | null => {
+    if (activeOperationId.current !== null) return null;
+    const id = ++currentOperationId.current;
+    activeOperationId.current = id;
+    setState((prev) => ({ ...prev, isBusy: true, error: null }));
+    return id;
+  }, []);
+
+  const finishOperation = useCallback((id: number) => {
+    if (activeOperationId.current !== id) return;
+    activeOperationId.current = null;
+    setState((prev) => ({ ...prev, isBusy: false }));
+  }, []);
+
+  useEffect(() => () => {
+    currentOperationId.current++;
+    activeOperationId.current = null;
+  }, []);
 
   /**
    * Process files selected from the folder input.
    * Filters for Nintendo Switch screenshots, loads capture IDs,
    * and groups files by game.
    */
-  const processFiles = async (selectedFiles: File[]) => {
-    setState((prev) => ({ ...prev, error: null }));
+  const processFiles = useCallback(
+    async (selectedFiles: File[], operationId: number) => {
+      if (!ownsOperation(operationId)) return;
 
-    // Start new operation, invalidating any previous one
-    const operationId = ++currentOperationId.current;
-
-    setState((prev) => ({
-      ...prev,
-      status: "scanning",
-      scanCount: 0,
-    }));
-    setGameGroups([]);
-    setSelectedGames(new Set());
-
-    const screenshots = await filterSwitchScreenshots(selectedFiles, (count) => {
-      if (currentOperationId.current === operationId) {
-        setState((prev) => ({ ...prev, scanCount: count }));
-      }
-    });
-
-    // Ignore results if a newer operation has started
-    if (currentOperationId.current !== operationId) return;
-
-    if (screenshots.length === 0) {
       setState((prev) => ({
         ...prev,
-        status: "idle",
-        error: "No Nintendo Switch screenshots found in this folder.",
+        status: "scanning",
+        scanCount: 0,
       }));
-      return;
-    }
-
-    // Load capture IDs (fallback to empty if fetch fails)
-    let captureIds: CaptureIds = {};
-    let loadError = false;
-
-    try {
-      captureIds = await loadCaptureIds();
-    } catch (e) {
-      console.error("Failed to load capture IDs:", e);
-      loadError = true;
-    }
-
-    if (currentOperationId.current !== operationId) return;
-
-    captureIdsRef.current = captureIds;
-    const groups = groupFilesByGame(screenshots, captureIds);
-
-    if (groups.length === 0) {
-      // Files matched the capture name pattern but none parsed into a valid
-      // date, so every one was dropped during grouping. Without this guard the
-      // app lands in "ready" with zero groups and no branch of App renders —
-      // a dead end that only a page refresh escapes.
       setGameGroups([]);
       setSelectedGames(new Set());
+
+      const screenshots = await filterSwitchScreenshots(selectedFiles, (count) => {
+        if (ownsOperation(operationId)) {
+          setState((prev) => ({ ...prev, scanCount: count }));
+        }
+      });
+
+      if (!ownsOperation(operationId)) return;
+
+      if (screenshots.length === 0) {
+        setState((prev) => ({
+          ...prev,
+          status: "idle",
+          error: "No Nintendo Switch screenshots found in this folder.",
+        }));
+        return;
+      }
+
+      // Load capture IDs (fallback to empty if fetch fails)
+      let captureIds: CaptureIds = {};
+      let loadError = false;
+
+      try {
+        captureIds = await loadCaptureIds();
+      } catch (e) {
+        console.error("Failed to load capture IDs:", e);
+        loadError = true;
+      }
+
+      if (!ownsOperation(operationId)) return;
+
+      captureIdsRef.current = captureIds;
+      const groups = groupFilesByGame(screenshots, captureIds);
+
+      if (groups.length === 0) {
+        // Files matched the capture name pattern but none parsed into a valid
+        // date, so every one was dropped during grouping. Without this guard the
+        // app lands in "ready" with zero groups and no branch of App renders —
+        // a dead end that only a page refresh escapes.
+        setGameGroups([]);
+        setSelectedGames(new Set());
+        setState((prev) => ({
+          ...prev,
+          status: "idle",
+          error:
+            "Found files that look like Switch captures, but none could be read. They may have been renamed or corrupted.",
+        }));
+        return;
+      }
+
+      setGameGroups(groups);
+      setSelectedGames(new Set(groups.map((g) => g.gameName)));
+
       setState((prev) => ({
         ...prev,
-        status: "idle",
-        error:
-          "Found files that look like Switch captures, but none could be read. They may have been renamed or corrupted.",
+        currentFileIndex: 0,
+        totalFiles: screenshots.length,
+        status: "ready",
+        error: loadError
+          ? "Failed to load game database. Games will appear as 'Unknown'."
+          : null,
       }));
-      return;
-    }
+    },
+    [ownsOperation],
+  );
 
-    setGameGroups(groups);
-    setSelectedGames(new Set(groups.map((g) => g.gameName)));
+  const beginImport = useCallback((): FolderImportOperation | null => {
+    const id = beginOperation();
+    if (id === null) return null;
+    let settled = false;
 
-    setState((prev) => ({
-      ...prev,
-      currentFileIndex: 0,
-      totalFiles: screenshots.length,
-      status: "ready",
-      error: loadError
-        ? "Failed to load game database. Games will appear as 'Unknown'."
-        : null,
-    }));
-  };
+    return {
+      complete: async (files) => {
+        if (settled || !ownsOperation(id)) return;
+        settled = true;
+        try {
+          await processFiles(files, id);
+        } catch (error) {
+          if (ownsOperation(id)) {
+            setState((prev) => ({
+              ...prev,
+              status: "idle",
+              error: error instanceof Error
+                ? `Error: ${error.message}`
+                : "Couldn't process the selected folder.",
+            }));
+          }
+        } finally {
+          finishOperation(id);
+        }
+      },
+      fail: (message) => {
+        if (settled || !ownsOperation(id)) return;
+        settled = true;
+        setState((prev) => ({ ...prev, error: message }));
+        finishOperation(id);
+      },
+      cancel: () => {
+        if (settled || !ownsOperation(id)) return;
+        settled = true;
+        finishOperation(id);
+      },
+    };
+  }, [beginOperation, finishOperation, ownsOperation, processFiles]);
 
-  /**
-   * Surface an error from an external read path (drag-and-drop, folder input)
-   * through the shared error channel so the UI can show it.
-   */
-  const reportError = (message: string) => {
-    setState((prev) => ({ ...prev, error: message }));
-  };
-
-  const toggleGame = (gameName: string) => {
+  const toggleGame = useCallback((gameName: string) => {
     setSelectedGames((prev) => {
       const next = new Set(prev);
       if (next.has(gameName)) {
@@ -150,30 +212,30 @@ export function useScreenshotProcessor() {
       }
       return next;
     });
-  };
+  }, []);
 
-  const selectAll = () => {
+  const selectAll = useCallback(() => {
     setSelectedGames(new Set(gameGroups.map((g) => g.gameName)));
-  };
+  }, [gameGroups]);
 
-  const deselectAll = () => {
+  const deselectAll = useCallback(() => {
     setSelectedGames(new Set());
-  };
+  }, []);
 
-  const downloadZip = async () => {
-    // Prevent double-clicks
-    if (isProcessing.current) return;
-    isProcessing.current = true;
+  const downloadZip = useCallback(async () => {
+    if (activeOperationId.current !== null) return;
 
     // Get files from selected games only
     const filesToExport = gameGroups
       .filter((g) => selectedGames.has(g.gameName))
       .flatMap((g) => g.files.map((f) => f.file));
 
-    if (filesToExport.length === 0) {
-      isProcessing.current = false;
-      return;
-    }
+    if (filesToExport.length === 0) return;
+
+    const id = beginOperation();
+    if (id === null) return;
+    const exportCaptureIds = captureIdsRef.current;
+    const exportFolderStructure = folderStructure;
 
     setState((prev) => ({
       ...prev,
@@ -183,8 +245,23 @@ export function useScreenshotProcessor() {
       // run's 100% bar and stale counts before the first file reports progress.
       currentFileIndex: 0,
       totalFiles: filesToExport.length,
-      error: null,
     }));
+
+    let progressFrame: number | null = null;
+    let latestProgress: ZipProgress | null = null;
+
+    const commitProgress = (progress: ZipProgress) => {
+      if (!ownsOperation(id)) return;
+      setState((prev) => ({
+        ...prev,
+        currentFileIndex: progress.current,
+        totalFiles: progress.total,
+        processingPhase:
+          progress.phase === "processing"
+            ? "Processing files..."
+            : "Finalizing...",
+      }));
+    };
 
     try {
       setState((prev) => ({
@@ -193,36 +270,40 @@ export function useScreenshotProcessor() {
       }));
 
       const handleProgress = (progress: ZipProgress) => {
-        setState((prev) => ({
-          ...prev,
-          currentFileIndex: progress.current,
-          totalFiles: progress.total,
-          processingPhase:
-            progress.phase === "processing"
-              ? "Processing files..."
-              : "Finalizing...",
-        }));
+        if (!ownsOperation(id)) return;
+        latestProgress = progress;
+        if (progressFrame !== null) return;
+        progressFrame = requestAnimationFrame(() => {
+          progressFrame = null;
+          const nextProgress = latestProgress;
+          latestProgress = null;
+          if (nextProgress) commitProgress(nextProgress);
+        });
       };
 
       const parseWithCaptureIds = (filename: string) =>
-        parseScreenshotFilename(filename, captureIdsRef.current);
+        parseScreenshotFilename(filename, exportCaptureIds);
 
       const pathGenerator = (screenshot: Screenshot, originalFilename: string) =>
-        getZipPath(screenshot, originalFilename, folderStructure);
+        getZipPath(screenshot, originalFilename, exportFolderStructure);
 
+      // Preserve the gallery-prewarmed chunk; a static import loads ZIP code up front.
       const { createZip } = await import("../utils/zip");
+      if (!ownsOperation(id)) return;
       const filename = await createZip(
         filesToExport,
         parseWithCaptureIds,
         pathGenerator,
         handleProgress
       );
+      if (!ownsOperation(id)) return;
       setState((prev) => ({
         ...prev,
         savedFilename: filename,
         status: "done",
       }));
     } catch (e) {
+      if (!ownsOperation(id)) return;
       if (e instanceof Error && e.name === "AbortError") {
         setState((prev) => ({ ...prev, status: "ready" }));
         return;
@@ -236,28 +317,40 @@ export function useScreenshotProcessor() {
             : "An error occurred while creating the ZIP file.",
       }));
     } finally {
-      isProcessing.current = false;
+      if (progressFrame !== null) cancelAnimationFrame(progressFrame);
+      finishOperation(id);
     }
-  };
+  }, [
+    beginOperation,
+    finishOperation,
+    folderStructure,
+    gameGroups,
+    ownsOperation,
+    selectedGames,
+  ]);
 
   /**
    * Return to gallery view from done state,
    * preserving game groups and selection.
    */
-  const backToGallery = () => {
+  const backToGallery = useCallback(() => {
+    if (activeOperationId.current !== null) return;
     setState((prev) => ({
       ...prev,
       status: "ready",
       error: null,
     }));
-  };
+  }, []);
 
   /**
    * Reset state to allow selecting a new folder.
    */
-  const reset = () => {
+  const reset = useCallback(() => {
+    currentOperationId.current++;
+    activeOperationId.current = null;
     setState({
       status: "idle",
+      isBusy: false,
       error: null,
       currentFileIndex: 0,
       totalFiles: 0,
@@ -267,7 +360,7 @@ export function useScreenshotProcessor() {
     });
     setGameGroups([]);
     setSelectedGames(new Set());
-  };
+  }, []);
 
   const progress =
     state.totalFiles > 0
@@ -300,13 +393,12 @@ export function useScreenshotProcessor() {
     selectedGames,
     folderStructure,
     setFolderStructure,
-    processFiles,
+    beginImport,
     downloadZip,
     toggleGame,
     selectAll,
     deselectAll,
     backToGallery,
     reset,
-    reportError,
   };
 }

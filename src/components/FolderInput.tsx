@@ -3,11 +3,12 @@ import {
   buttonBaseStyles,
   buttonVariantStyles,
   type ButtonVariant,
-} from "./Button";
+} from "./buttonStyles";
 import { Spinner } from "./Spinner";
 import { collectFilesFromDirectoryHandle } from "../utils/filesystem";
 import { loadCaptureIds } from "../utils/captureIds";
 import { useCyclingMessage } from "../hooks/useCyclingMessage";
+import type { FolderImportOperation } from "../types";
 
 const supportsDirectoryPicker = "showDirectoryPicker" in window;
 
@@ -20,8 +21,7 @@ const READING_MESSAGES = [
 ];
 
 interface FolderInputProps {
-  onFilesSelected: (files: File[]) => void;
-  onError?: (message: string) => void;
+  onImportStart: () => FolderImportOperation | null;
   disabled?: boolean;
   children: ReactNode;
   variant?: ButtonVariant;
@@ -38,8 +38,7 @@ interface FolderInputProps {
  * Falls back to <input webkitdirectory> on Firefox and Safari.
  */
 export function FolderInput({
-  onFilesSelected,
-  onError,
+  onImportStart,
   disabled = false,
   children,
   variant = "secondary",
@@ -48,6 +47,12 @@ export function FolderInput({
   const [isReading, setIsReading] = useState(false);
   const [fileCount, setFileCount] = useState(0);
   const fileCountRef = useRef(0);
+  const operationRef = useRef<FolderImportOperation | null>(null);
+
+  useEffect(() => () => {
+    operationRef.current?.cancel();
+    operationRef.current = null;
+  }, []);
 
   // Sync fileCountRef → fileCount state on a 100ms interval while reading
   useEffect(() => {
@@ -59,35 +64,51 @@ export function FolderInput({
   // ── showDirectoryPicker path (Chromium) ──
 
   const handleDirectoryPicker = async () => {
+    const operation = onImportStart();
+    if (operation === null) return;
+    operationRef.current = operation;
+
     loadCaptureIds().catch(() => {});
     let dirHandle: FileSystemDirectoryHandle;
     try {
       dirHandle = await window.showDirectoryPicker();
-    } catch {
-      // User cancelled the picker
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        operation.cancel();
+      } else {
+        console.error("Failed to open folder:", err);
+        operation.fail(
+          "Couldn't read the folder. If it's on an SD card, make sure it's still connected and try again."
+        );
+      }
+      if (operationRef.current === operation) operationRef.current = null;
       return;
     }
 
+    if (operationRef.current !== operation) return;
     fileCountRef.current = 0;
     setFileCount(0);
     setIsReading(true);
     try {
       const files = await collectFilesFromDirectoryHandle(dirHandle, () => {
-        fileCountRef.current++;
+        if (operationRef.current === operation) fileCountRef.current++;
       });
-      if (files.length > 0) {
-        onFilesSelected(files);
-      }
+      if (operationRef.current !== operation) return;
+      setIsReading(false);
+      await operation.complete(files);
     } catch (err) {
       // Reading a handle rejects on real IO failures (card ejected mid-scan,
       // permission revoked). Surface it instead of leaving the user staring at
       // a spinner that silently resets with nothing to show.
       console.error("Failed to read folder:", err);
-      onError?.(
+      operation.fail(
         "Couldn't read the folder. If it's on an SD card, make sure it's still connected and try again."
       );
     } finally {
-      setIsReading(false);
+      if (operationRef.current === operation) {
+        operationRef.current = null;
+        setIsReading(false);
+      }
     }
   };
 
@@ -95,7 +116,6 @@ export function FolderInput({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogOpenRef = useRef(false);
-  const cancelledRef = useRef(false);
   const focusTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -104,9 +124,11 @@ export function FolderInput({
     const onFocus = () => {
       if (!dialogOpenRef.current) return;
       dialogOpenRef.current = false;
+      const operation = operationRef.current;
+      if (operation === null) return;
 
       focusTimerRef.current = setTimeout(() => {
-        if (!cancelledRef.current) {
+        if (operationRef.current === operation) {
           setIsReading(true);
         }
       }, 100);
@@ -125,37 +147,53 @@ export function FolderInput({
     const input = inputRef.current;
     if (!input) return;
     const onCancel = () => {
-      cancelledRef.current = true;
+      dialogOpenRef.current = false;
       clearTimeout(focusTimerRef.current);
       setIsReading(false);
+      const operation = operationRef.current;
+      operationRef.current = null;
+      operation?.cancel();
     };
     input.addEventListener("cancel", onCancel);
     return () => input.removeEventListener("cancel", onCancel);
   }, []);
 
   const handleFallbackClick = () => {
+    const input = inputRef.current;
+    if (!input) return;
+    const operation = onImportStart();
+    if (operation === null) return;
+    operationRef.current = operation;
+
     loadCaptureIds().catch(() => {});
-    cancelledRef.current = false;
     dialogOpenRef.current = true;
-    inputRef.current?.click();
+    input.click();
   };
 
-  const handleFallbackChange = (
+  const handleFallbackChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
+    dialogOpenRef.current = false;
     clearTimeout(focusTimerRef.current);
     setIsReading(false);
 
+    const operation = operationRef.current;
+    operationRef.current = null;
     const fileList = event.target.files;
-    if (!fileList || fileList.length === 0) return;
-
-    onFilesSelected(Array.from(fileList));
+    const files = operation && fileList ? Array.from(fileList) : null;
     event.target.value = "";
+
+    if (operation === null) return;
+    if (files === null) {
+      operation.cancel();
+      return;
+    }
+    await operation.complete(files);
   };
 
   // ── Render ──
 
-  const showLoading = isReading && !disabled;
+  const showLoading = isReading;
   const { message, visible: messageVisible } = useCyclingMessage(
     READING_MESSAGES,
     showLoading
@@ -171,7 +209,7 @@ export function FolderInput({
           webkitdirectory="true"
           multiple
           onChange={handleFallbackChange}
-          disabled={disabled}
+          disabled={disabled && operationRef.current === null}
           className="hidden"
           aria-hidden="true"
         />

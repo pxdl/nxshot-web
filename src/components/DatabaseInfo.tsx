@@ -3,6 +3,76 @@ import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { loadCaptureIdsMetadata } from "../utils/captureIds";
 import { GameDatabase } from "./GameDatabase";
 import type { CaptureIdsMetadata } from "../types";
+import { ErrorBoundary } from "./ErrorBoundary";
+import { Card } from "./Card";
+import {
+  buttonBaseStyles,
+  buttonVariantStyles,
+} from "./buttonStyles";
+
+interface DatabaseErrorFallbackProps {
+  onClose: () => void;
+}
+
+function DatabaseErrorFallback({ onClose }: DatabaseErrorFallbackProps) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    if (!dialog.open) dialog.showModal();
+    closeRef.current?.focus();
+
+    return () => {
+      if (dialog.open) dialog.close();
+    };
+  }, []);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="database-error-title"
+      aria-describedby="database-error-description"
+      className="m-auto p-4 bg-transparent border-0 outline-none w-full h-full max-w-none flex items-center justify-center"
+    >
+      <div className="w-full max-w-md">
+        <Card>
+          <div className="flex flex-col gap-4 text-center">
+            <h2
+              id="database-error-title"
+              className="text-xl font-display font-bold text-stone-800 dark:text-slate-200"
+            >
+              Game database unavailable
+            </h2>
+            <p
+              id="database-error-description"
+              className="text-sm text-stone-500 dark:text-slate-400"
+            >
+              The game database could not be displayed. Your selected files are
+              unchanged.
+            </p>
+            <button
+              ref={closeRef}
+              type="button"
+              onClick={onClose}
+              className={`${buttonBaseStyles} ${buttonVariantStyles.secondary}`}
+            >
+              Close
+            </button>
+          </div>
+        </Card>
+      </div>
+    </dialog>
+  );
+}
 
 export function DatabaseInfo() {
   const [metadata, setMetadata] = useState<CaptureIdsMetadata | null>(null);
@@ -15,6 +85,11 @@ export function DatabaseInfo() {
       .then(setMetadata)
       .catch(() => setError(true));
   }, []);
+
+  const closeDatabase = () => {
+    setDatabaseOpen(false);
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  };
 
   if (error) {
     return null;
@@ -38,15 +113,11 @@ export function DatabaseInfo() {
       </button>
 
       {databaseOpen && metadata && (
-        <GameDatabase
-          metadata={metadata}
-          onClose={() => {
-            setDatabaseOpen(false);
-            // Restore focus to the trigger so keyboard/screen-reader users
-            // aren't dropped back onto <body> after the dialog closes.
-            triggerRef.current?.focus();
-          }}
-        />
+        <ErrorBoundary
+          fallback={<DatabaseErrorFallback onClose={closeDatabase} />}
+        >
+          <GameDatabase metadata={metadata} onClose={closeDatabase} />
+        </ErrorBoundary>
       )}
     </div>
   );

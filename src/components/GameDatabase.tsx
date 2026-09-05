@@ -1,9 +1,15 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+  useDeferredValue,
+} from "react";
 import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
-  getFilteredRowModel,
   createColumnHelper,
   flexRender,
   type SortingState,
@@ -21,12 +27,19 @@ import {
 } from "@heroicons/react/24/outline";
 import { loadCaptureIds } from "../utils/captureIds";
 import { formatDate } from "../utils/format";
+import { Button } from "./Button";
 import { Spinner } from "./Spinner";
 import type { CaptureIdsMetadata } from "../types";
 
 interface GameEntry {
   captureId: string;
   gameName: string;
+  searchText: string;
+}
+
+interface GameEntryDetailsProps {
+  entry: GameEntry | null;
+  onClose: () => void;
 }
 
 const columnHelper = createColumnHelper<GameEntry>();
@@ -35,21 +48,6 @@ const ROW_HEIGHT = 44;
 const estimateRowSize = () => ROW_HEIGHT;
 const coreRowModel = getCoreRowModel<GameEntry>();
 const sortedRowModel = getSortedRowModel<GameEntry>();
-const filteredRowModel = getFilteredRowModel<GameEntry>();
-
-// Splits the query into space-separated tokens and requires each to appear
-// as a substring anywhere in the game name or capture ID. This means partial
-// words match too — e.g. "rio kart" matches "Mario Kart" via "ma*rio*" and "*kart*".
-function multiWordFilter(
-  row: { getValue: (id: string) => unknown },
-  _columnId: string,
-  filterValue: string,
-): boolean {
-  const tokens = filterValue.toLowerCase().split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return true;
-  const haystack = `${row.getValue("gameName")} ${row.getValue("captureId")}`.toLowerCase();
-  return tokens.every((token) => haystack.includes(token));
-}
 
 function CopyButton({ text }: { text: string }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
@@ -99,6 +97,96 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+function GameEntryDetails({
+  entry,
+  onClose,
+}: GameEntryDetailsProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog || !entry) return;
+    if (!dialog.open) dialog.showModal();
+    closeRef.current?.focus();
+
+    return () => {
+      if (dialog.open) dialog.close();
+    };
+  }, [entry]);
+
+  if (!entry) return null;
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-modal="true"
+      aria-labelledby="game-entry-details-title"
+      aria-describedby="game-entry-details-description"
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      className="m-auto p-4 bg-transparent border-0 outline-none w-full h-full max-w-none flex items-center justify-center"
+    >
+      <div className="w-full max-w-md max-h-full overflow-y-auto overscroll-contain bg-white dark:bg-[#161b22] rounded-2xl border border-stone-200/80 dark:border-slate-700/50 shadow-2xl dark:shadow-black/50 p-4 md:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2
+            id="game-entry-details-title"
+            className="text-xl font-display font-bold text-stone-800 dark:text-slate-200"
+          >
+            Game entry details
+          </h2>
+          <button
+            ref={closeRef}
+            type="button"
+            onClick={onClose}
+            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg hover:bg-stone-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="Close game entry details"
+          >
+            <XMarkIcon className="w-5 h-5 text-stone-500 dark:text-slate-400" />
+          </button>
+        </div>
+
+        <p
+          id="game-entry-details-description"
+          className="sr-only"
+        >
+          Full game name and capture ID for the selected entry.
+        </p>
+
+        <dl className="space-y-4 text-base">
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-stone-500 dark:text-slate-400">
+              Game Name
+            </dt>
+            <dd className="mt-1 whitespace-normal break-words text-stone-800 dark:text-slate-200">
+              {entry.gameName}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-stone-500 dark:text-slate-400">
+              Capture ID
+            </dt>
+            <dd className="mt-1 flex items-start gap-1.5">
+              <code className="min-w-0 flex-1 break-all select-all text-sm font-mono text-stone-500 dark:text-slate-400">
+                {entry.captureId}
+              </code>
+              <CopyButton text={entry.captureId} />
+            </dd>
+          </div>
+        </dl>
+
+        <div className="mt-6">
+          <Button onClick={onClose} variant="secondary">
+            Close
+          </Button>
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
 const CLOSE_DURATION = 160;
 
 const SOURCES: Record<
@@ -133,24 +221,59 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
     { id: "gameName", desc: false },
   ]);
   const [globalFilter, setGlobalFilter] = useState("");
+  const deferredGlobalFilter = useDeferredValue(globalFilter);
+  const filteredData = useMemo(() => {
+    const tokens = deferredGlobalFilter
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (tokens.length === 0) return data;
+    return data.filter((entry) =>
+      tokens.every((token) => entry.searchText.includes(token)),
+    );
+  }, [data, deferredGlobalFilter]);
   const [showInfo, setShowInfo] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<GameEntry | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const detailsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const closingRef = useRef(false);
-  const handleCloseRef = useRef(() => {});
   // Tracks whether a mousedown started on the backdrop, so releasing a text
   // selection that began inside the modal and ended on the backdrop doesn't
   // close it (only a genuine backdrop click should).
   const backdropDownRef = useRef(false);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
     setIsClosing(true);
-    setTimeout(onClose, CLOSE_DURATION);
-  };
-  handleCloseRef.current = handleClose;
+    setTimeout(() => {
+      dialogRef.current?.close();
+      onClose();
+    }, CLOSE_DURATION);
+  }, [onClose]);
+
+  const openDetails = useCallback(
+    (entry: GameEntry, trigger: HTMLButtonElement) => {
+      detailsTriggerRef.current = trigger;
+      setSelectedEntry(entry);
+    },
+    [],
+  );
+
+  const closeDetails = useCallback(() => {
+    const trigger = detailsTriggerRef.current;
+    detailsTriggerRef.current = null;
+    setSelectedEntry(null);
+    requestAnimationFrame(() => {
+      if (trigger?.isConnected) {
+        trigger.focus();
+      } else {
+        searchRef.current?.focus();
+      }
+    });
+  }, []);
 
   useEffect(() => {
     loadCaptureIds()
@@ -158,6 +281,7 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
         const entries = Object.entries(ids).map(([captureId, gameName]) => ({
           captureId,
           gameName,
+          searchText: `${gameName} ${captureId}`.toLowerCase(),
         }));
         setData(entries);
         setLoading(false);
@@ -168,61 +292,48 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
       });
   }, []);
 
-  // Move focus into the dialog as soon as it opens (the search input is always
-  // rendered, even while the table loads) so the focus trap has somewhere to land.
-  useEffect(() => {
-    searchRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleCloseRef.current();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  // Focus trap: keep Tab / Shift+Tab cycling within the dialog so keyboard users
-  // can't wander into the scroll-locked background page behind the scrim.
+  // Open the dialog modally and focus the search input.
+  // showModal() provides: focus trap, scroll lock, Escape (cancel event),
+  // and ::backdrop — no need for hand-rolled listeners.
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    const handleTab = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-      const focusables = dialog.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusables.length === 0) return;
-      const first = focusables[0]!;
-      const last = focusables[focusables.length - 1]!;
-      const active = document.activeElement;
-      if (e.shiftKey) {
-        if (active === first || !dialog.contains(active)) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else if (active === last || !dialog.contains(active)) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    dialog.addEventListener("keydown", handleTab);
-    return () => dialog.removeEventListener("keydown", handleTab);
+    dialog.showModal();
+    searchRef.current?.focus();
   }, []);
 
+  // Escape: prevent the native close so the exit animation can play first.
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const onCancel = (e: Event) => {
+      e.preventDefault();
+      handleClose();
     };
-  }, []);
+    dialog.addEventListener("cancel", onCancel);
+    return () => dialog.removeEventListener("cancel", onCancel);
+  }, [handleClose]);
 
   const columns = useMemo(
     () => [
       columnHelper.accessor("gameName", {
         header: "Game Name",
-        cell: (info) => info.getValue(),
+        cell: (info) => (
+          <button
+            type="button"
+            onClick={(event) => {
+              openDetails(info.row.original, event.currentTarget);
+            }}
+            className="flex min-h-11 min-w-11 w-full items-center gap-2 rounded-lg text-left hover:bg-stone-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label={`Show full details for ${info.getValue()}`}
+          >
+            <span className="min-w-0 flex-1 truncate">{info.getValue()}</span>
+            <InformationCircleIcon
+              aria-hidden="true"
+              className="w-4 h-4 shrink-0 text-stone-500 dark:text-slate-400"
+            />
+          </button>
+        ),
       }),
       columnHelper.accessor("captureId", {
         header: "Capture ID",
@@ -236,19 +347,17 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
         ),
       }),
     ],
-    [],
+    [openDetails],
   );
 
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns,
-    state: { sorting, globalFilter },
+    state: { sorting },
     onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
-    globalFilterFn: multiWordFilter,
     getCoreRowModel: coreRowModel,
     getSortedRowModel: sortedRowModel,
-    getFilteredRowModel: filteredRowModel,
+    getRowId: (row) => row.captureId,
   });
 
   const { rows } = table.getRowModel();
@@ -261,8 +370,11 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
   });
 
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm ${isClosing ? "animate-fade-out" : "animate-fade-in"}`}
+    <>
+    <dialog
+      ref={dialogRef}
+      data-closing={isClosing ? "true" : undefined}
+      aria-labelledby="game-database-title"
       onMouseDown={(e) => {
         backdropDownRef.current = e.target === e.currentTarget;
       }}
@@ -272,12 +384,9 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
         }
         backdropDownRef.current = false;
       }}
+      className="m-auto p-4 bg-transparent border-0 outline-none w-full h-full max-w-none flex items-center justify-center"
     >
       <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="game-database-title"
         className={`w-full max-w-4xl h-[min(85vh,900px)] bg-white dark:bg-[#161b22] rounded-2xl border border-stone-200/80 dark:border-slate-700/50 shadow-2xl dark:shadow-black/50 flex flex-col overflow-hidden ${isClosing ? "animate-modal-out" : "animate-modal-in"}`}
       >
         {/* Header */}
@@ -314,6 +423,7 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
               <button
                 type="button"
                 onClick={() => setGlobalFilter("")}
+                aria-label="Clear search"
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-stone-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
               >
                 <XMarkIcon className="w-4 h-4 text-stone-500 dark:text-slate-400" />
@@ -333,81 +443,122 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
           </div>
         ) : (
           <>
-            {/* Column headers */}
-            <div className="shrink-0 grid grid-cols-[1fr_auto] border-b border-stone-200 dark:border-slate-700/50 bg-stone-50 dark:bg-[#0d1117]/50">
-              {table.getHeaderGroups().map((headerGroup) =>
-                headerGroup.headers.map((header) => {
-                  const sorted = header.column.getIsSorted();
-                  return (
-                    <button
-                      key={header.id}
-                      type="button"
-                      onClick={header.column.getToggleSortingHandler()}
-                      className={`flex items-center gap-1.5 px-4 md:px-6 py-3 text-xs font-medium uppercase tracking-wide text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-300 transition-colors cursor-pointer ${
-                        header.id === "captureId"
-                          ? "text-right justify-end"
-                          : "text-left"
-                      }`}
-                    >
-                      {flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )}
-                      {sorted === "asc" ? (
-                        <ChevronUpIcon className="w-3.5 h-3.5" />
-                      ) : sorted === "desc" ? (
-                        <ChevronDownIcon className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronUpDownIcon className="w-3.5 h-3.5 opacity-30" />
-                      )}
-                    </button>
-                  );
-                }),
-              )}
-            </div>
-
-            {/* Virtualized rows */}
-            <div ref={parentRef} className="flex-1 overflow-auto">
-              {rows.length === 0 ? (
-                <div className="flex items-center justify-center h-48 text-stone-500 dark:text-slate-400 text-sm">
-                  No games found matching &ldquo;{globalFilter}&rdquo;
-                </div>
-              ) : (
-                <div
-                  style={{ height: `${virtualizer.getTotalSize()}px` }}
-                  className="relative w-full"
-                >
-                  {virtualizer.getVirtualItems().map((virtualRow) => {
-                    const row = rows[virtualRow.index]!;
-                    return (
-                      <div
-                        key={row.id}
-                        className="absolute top-0 left-0 w-full grid grid-cols-[1fr_auto] items-center border-b border-stone-100 dark:border-slate-800/50 hover:bg-stone-50 dark:hover:bg-slate-800/30 transition-colors"
-                        style={{
-                          height: `${virtualRow.size}px`,
-                          transform: `translateY(${virtualRow.start}px)`,
-                        }}
-                      >
-                        {row.getVisibleCells().map((cell) => (
-                          <div
-                            key={cell.id}
-                            className={`px-4 md:px-6 ${
-                              cell.column.id === "gameName"
-                                ? "text-sm text-stone-800 dark:text-slate-200 truncate"
-                                : "flex justify-end"
+            <div
+              role="table"
+              aria-labelledby="game-database-title"
+              aria-colcount={2}
+              aria-rowcount={rows.length + 1}
+              className="flex-1 min-h-0 flex flex-col"
+            >
+              {/* Column headers */}
+              <div
+                role="rowgroup"
+                className="shrink-0 border-b border-stone-200 dark:border-slate-700/50 bg-stone-50 dark:bg-[#0d1117]/50"
+              >
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <div
+                    key={headerGroup.id}
+                    role="row"
+                    aria-rowindex={1}
+                    className="grid grid-cols-[1fr_auto]"
+                  >
+                    {headerGroup.headers.map((header) => {
+                      const sorted = header.column.getIsSorted();
+                      const ariaSort =
+                        sorted === "asc"
+                          ? "ascending"
+                          : sorted === "desc"
+                            ? "descending"
+                            : "none";
+                      return (
+                        <div
+                          key={header.id}
+                          role="columnheader"
+                          aria-sort={ariaSort}
+                          className="min-w-0"
+                        >
+                          <button
+                            type="button"
+                            onClick={header.column.getToggleSortingHandler()}
+                            className={`w-full flex items-center gap-1.5 px-4 md:px-6 py-3 text-xs font-medium uppercase tracking-wide text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-300 transition-colors cursor-pointer ${
+                              header.id === "captureId"
+                                ? "text-right justify-end"
+                                : "text-left"
                             }`}
                           >
                             {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext(),
+                              header.column.columnDef.header,
+                              header.getContext(),
                             )}
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                            {sorted === "asc" ? (
+                              <ChevronUpIcon className="w-3.5 h-3.5" />
+                            ) : sorted === "desc" ? (
+                              <ChevronDownIcon className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronUpDownIcon className="w-3.5 h-3.5 opacity-30" />
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              {/* Virtualized rows */}
+              <div
+                ref={parentRef}
+                role="rowgroup"
+                className="min-h-0 flex-1 overflow-auto"
+              >
+                {rows.length === 0 ? (
+                  <div
+                    role="presentation"
+                    className="flex items-center justify-center h-48 text-stone-500 dark:text-slate-400 text-sm"
+                  >
+                    No games found matching &ldquo;{globalFilter}&rdquo;
+                  </div>
+                ) : (
+                  <div
+                    role="presentation"
+                    style={{ height: `${virtualizer.getTotalSize()}px` }}
+                    className="relative w-full"
+                  >
+                    {virtualizer.getVirtualItems().map((virtualRow) => {
+                      const row = rows[virtualRow.index]!;
+                      return (
+                        <div
+                          key={row.id}
+                          role="row"
+                          aria-rowindex={virtualRow.index + 2}
+                          className="absolute top-0 left-0 w-full grid grid-cols-[1fr_auto] items-center border-b border-stone-100 dark:border-slate-800/50 hover:bg-stone-50 dark:hover:bg-slate-800/30 transition-colors"
+                          style={{
+                            height: `${virtualRow.size}px`,
+                            transform: `translateY(${virtualRow.start}px)`,
+                          }}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <div
+                              key={cell.id}
+                              role="cell"
+                              className={`min-w-0 px-4 md:px-6 ${
+                                cell.column.id === "gameName"
+                                  ? "text-sm text-stone-800 dark:text-slate-200"
+                                  : "flex justify-end"
+                              }`}
+                            >
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext(),
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Footer */}
@@ -475,6 +626,11 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
           </>
         )}
       </div>
-    </div>
+    </dialog>
+      <GameEntryDetails
+        entry={selectedEntry}
+        onClose={closeDetails}
+      />
+    </>
   );
 }

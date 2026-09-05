@@ -163,6 +163,18 @@ html {
   }
 }
 
+/* Native <dialog> backdrop — replaces the hand-rolled scrim div. */
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  animation: fade-in 0.2s ease-out both;
+}
+
+dialog[data-closing="true"]::backdrop {
+  animation: fade-out 0.15s ease-in both;
+}
+
 /* Reduced motion is not *no* motion — it's gentler, non-vestibular motion.
    We keep opacity/color fades that aid comprehension, but strip travel,
    overshoot, and looping. Entrances fade in place instead of sliding/scaling. */
@@ -199,6 +211,10 @@ html {
    drop their blur when the user asks for reduced transparency. */
 @media (prefers-reduced-transparency: reduce) {
   [class*="backdrop-blur"] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  dialog::backdrop {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }
