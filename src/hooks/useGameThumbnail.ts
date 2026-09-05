@@ -94,6 +94,7 @@ export function useGameThumbnail(
 
     let cancelled = false;
     let cleanup: (() => void) | null = null;
+    let thumbnailObjectUrl: string | null = null;
     const { promise: slotReady, cancel: cancelSlot } = acquireVideoThumbSlot();
 
     slotReady.then(() => {
@@ -144,10 +145,13 @@ export function useGameThumbnail(
           .getContext("2d")!
           .drawImage(video, 0, 0, THUMB_W, thumbH);
         canvas.toBlob((blob) => {
-          cleanupVideo();
-          if (blob && !cancelled) {
-            setThumbnailUrl(URL.createObjectURL(blob));
+          if (cancelled || !blob) {
+            cleanupVideo();
+            return;
           }
+          cleanupVideo();
+          thumbnailObjectUrl = URL.createObjectURL(blob);
+          setThumbnailUrl(thumbnailObjectUrl);
         }, "image/jpeg");
       };
 
@@ -178,10 +182,11 @@ export function useGameThumbnail(
       cancelled = true;
       cancelSlot();
       cleanup?.();
-      setThumbnailUrl((previous) => {
-        if (previous) URL.revokeObjectURL(previous);
-        return null;
-      });
+      if (thumbnailObjectUrl) {
+        URL.revokeObjectURL(thumbnailObjectUrl);
+        thumbnailObjectUrl = null;
+      }
+      setThumbnailUrl(null);
     };
   }, [thumbnailSource]);
 

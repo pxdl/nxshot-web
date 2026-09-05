@@ -1,6 +1,6 @@
 # 004 — Revoke generated video thumbnail URLs on unmount
 
-- **Status**: TODO
+- **Status**: IN PROGRESS (implementation pending central QA)
 - **Commit**: 2dcfc83 (audit baseline; the orchestrator refreshes the execution base after any authorized dependencies)
 - **Severity**: MEDIUM
 - **Category**: Performance
