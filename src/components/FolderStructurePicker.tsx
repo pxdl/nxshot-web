@@ -89,7 +89,19 @@ export function FolderStructurePicker({
   useClickOutside(ref, open, close);
 
   return (
-    <div className="relative w-full" ref={ref}>
+    <div
+      className="relative w-full"
+      ref={ref}
+      onBlur={(event) => {
+        if (
+          open &&
+          !isClosing &&
+          !event.currentTarget.contains(event.relatedTarget as Node | null)
+        ) {
+          close();
+        }
+      }}
+    >
       <button
         ref={triggerRef}
         type="button"
@@ -124,6 +136,7 @@ export function FolderStructurePicker({
         <div
           role="listbox"
           aria-label="Folder structure"
+          inert={isClosing}
           className={`absolute left-0 right-0 bottom-full mb-1.5 origin-bottom ${isClosing ? "animate-popover-out" : "animate-popover-in"} rounded-xl border border-stone-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl dark:shadow-black/40 overflow-hidden z-50`}
         >
           {OPTIONS.map((option, index) => {
@@ -137,7 +150,7 @@ export function FolderStructurePicker({
                 type="button"
                 role="option"
                 aria-selected={isSelected}
-                tabIndex={index === activeIndex ? 0 : -1}
+                tabIndex={isClosing ? -1 : index === activeIndex ? 0 : -1}
                 onFocus={() => setActiveIndex(index)}
                 onKeyDown={(event) => {
                   switch (event.key) {
