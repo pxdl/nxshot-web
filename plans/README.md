@@ -32,14 +32,14 @@ Start 001, 004, 005, 007 and 008 independently. After their commits are reviewed
 | Plan | Finding | Status | Prerequisite | Executor / branch | Commit / verification |
 |---|---|---|---|---|---|
 | [001](001-shared-operation-ownership.md) | Shared import/export operation ownership | IN PROGRESS | — | `nxfix001` · `wN:p1` · `fix/react-001-operation-ownership` | `6e9b909` reviewed and merged; central QA pending |
-| [002](002-empty-folder-outcomes.md) | Empty selections must clear stale captures and report outcome | TODO | 001 | Not launched | — |
-| [003](003-visible-import-errors.md) | Operation errors must remain visible from Done | TODO | 001 | Not launched | — |
+| [002](002-empty-folder-outcomes.md) | Empty selections must clear stale captures and report outcome | IN PROGRESS | 001 | `nxfix002` · `w14:p1` · `fix/react-002-empty-folder-outcomes` | `c2f73b9` merged; central QA pending |
+| [003](003-visible-import-errors.md) | Operation errors must remain visible from Done | IN PROGRESS | 001 | `nxfix003` · `w15:p1` · `fix/react-003-visible-import-errors` | `512c97a` merged; central QA pending |
 | [004](004-video-thumbnail-cleanup.md) | Generated video-thumbnail Blob URL leak | IN PROGRESS | — | `nxfix004` · `wP:p1` · `fix/react-004-thumbnail-cleanup` | `37a516f` merged; central QA pending |
 | [005](005-database-error-dialog.md) | Database failure must remain a real modal | IN PROGRESS | — | `nxfix005` · `wQ:p1` · `fix/react-005-database-error-dialog` | `d2f88e6` merged; central QA pending |
 | [006](006-gallery-load-recovery.md) | Cached lazy-gallery rejection needs working recovery | TODO | 003 | Not launched | — |
 | [007](007-database-table-semantics.md) | Virtualized database needs table and sort semantics | IN PROGRESS | — | `nxfix007` · `wR:p1` · `fix/react-007-database-table-semantics` | `e28b2eb` merged; central QA pending |
 | [008](008-folder-popup-dismissal.md) | Popup must close when keyboard focus leaves | IN PROGRESS | — | `nxfix008` · `wS:p1` · `fix/react-008-popup-dismissal` | `40f07eb` merged; central QA pending |
-| [009](009-database-full-values.md) | Full game names and IDs need keyboard/touch disclosure | IN PROGRESS | 007 | `nxfix009` · `w13:p1` · `fix/react-009-database-full-values` | Base `888cbb3`; implementation running |
+| [009](009-database-full-values.md) | Full game names and IDs need keyboard/touch disclosure | IN PROGRESS | 007 | `nxfix009` · `w13:p1` · `fix/react-009-database-full-values` | `09aae6b` merged; central QA pending |
 
 ## Final verification
 

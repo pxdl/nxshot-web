@@ -7,7 +7,7 @@
 - **Rule**: Beyond the scan
 - **Estimated scope**: 1 existing source file, gallery fallback only
 - **Depends on**: 003-visible-import-errors.md (and therefore 001)
-- **Execution base**: Orchestrator refreshes exact base and source line references after 003. Never run concurrently with another App editor. Other completed non-App plans are authorized ancestors.
+- **Verified execution source**: `2a27dc6459c83a4ca728c9bc9729b428907c5cd8` includes reviewed/integrated 001 and 003 plus the other completed fixes. Current App excerpts/lines match this tree. Launch may use a plans-only descendant. This is the final App editor; no concurrent App changes.
 
 ## Problem
 
@@ -19,7 +19,7 @@ const Gallery = lazy(() =>
 );
 ```
 
-Its ErrorBoundary fallback at baseline lines 224-228 promises an ineffective recovery:
+Its current ErrorBoundary fallback at `src/App.tsx:220-224` still promises an ineffective recovery:
 
 ```tsx
 <ErrorBoundary
