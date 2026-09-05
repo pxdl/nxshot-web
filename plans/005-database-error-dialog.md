@@ -1,6 +1,6 @@
 # 005 — Make the database error fallback a native modal dialog
 
-- **Status**: TODO
+- **Status**: IN PROGRESS — pending central QA
 - **Commit**: 2dcfc83 (audit baseline; the orchestrator refreshes the execution base after any authorized dependencies)
 - **Severity**: MEDIUM
 - **Category**: Accessibility
