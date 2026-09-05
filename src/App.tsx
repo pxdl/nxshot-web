@@ -219,7 +219,20 @@ export default function App() {
           >
             <ErrorBoundary
               fallback={
-                <ErrorAlert message="Something went wrong loading the gallery. Your files are safe — try selecting your folder again." />
+                <div className="space-y-3">
+                  <ErrorAlert>
+                    <p className="font-semibold">The gallery could not be loaded.</p>
+                    <p className="mt-1">
+                      Your files are unchanged. Reload this page, then select your folder again.
+                    </p>
+                  </ErrorAlert>
+                  <Button
+                    onClick={() => window.location.reload()}
+                    variant="secondary"
+                  >
+                    Reload page
+                  </Button>
+                </div>
               }
             >
               <Suspense

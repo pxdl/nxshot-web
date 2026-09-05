@@ -1,6 +1,6 @@
 # 006 — Offer real recovery after the gallery chunk fails
 
-- **Status**: TODO
+- **Status**: IN PROGRESS — pending central QA
 - **Commit**: 2dcfc83d4f0b1ef7189cc8f76e7e0b788f392b9d
 - **Severity**: MEDIUM
 - **Category**: Bugs & correctness
