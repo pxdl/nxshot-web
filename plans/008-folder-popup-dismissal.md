@@ -1,6 +1,6 @@
 # 008 — Dismiss the folder picker when focus leaves its root
 
-- **Status**: TODO
+- **Status**: IN PROGRESS — implementation complete; pending central QA.
 - **Commit**: 2dcfc83 (audit baseline; the orchestrator refreshes the execution base after any authorized dependencies)
 - **Severity**: MEDIUM
 - **Category**: Accessibility
