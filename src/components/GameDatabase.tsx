@@ -27,6 +27,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { loadCaptureIds } from "../utils/captureIds";
 import { formatDate } from "../utils/format";
+import { Button } from "./Button";
 import { Spinner } from "./Spinner";
 import type { CaptureIdsMetadata } from "../types";
 
@@ -34,6 +35,11 @@ interface GameEntry {
   captureId: string;
   gameName: string;
   searchText: string;
+}
+
+interface GameEntryDetailsProps {
+  entry: GameEntry | null;
+  onClose: () => void;
 }
 
 const columnHelper = createColumnHelper<GameEntry>();
@@ -91,6 +97,96 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+function GameEntryDetails({
+  entry,
+  onClose,
+}: GameEntryDetailsProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog || !entry) return;
+    if (!dialog.open) dialog.showModal();
+    closeRef.current?.focus();
+
+    return () => {
+      if (dialog.open) dialog.close();
+    };
+  }, [entry]);
+
+  if (!entry) return null;
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-modal="true"
+      aria-labelledby="game-entry-details-title"
+      aria-describedby="game-entry-details-description"
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      className="m-auto p-4 bg-transparent border-0 outline-none w-full h-full max-w-none flex items-center justify-center"
+    >
+      <div className="w-full max-w-md max-h-full overflow-y-auto overscroll-contain bg-white dark:bg-[#161b22] rounded-2xl border border-stone-200/80 dark:border-slate-700/50 shadow-2xl dark:shadow-black/50 p-4 md:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2
+            id="game-entry-details-title"
+            className="text-xl font-display font-bold text-stone-800 dark:text-slate-200"
+          >
+            Game entry details
+          </h2>
+          <button
+            ref={closeRef}
+            type="button"
+            onClick={onClose}
+            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg hover:bg-stone-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="Close game entry details"
+          >
+            <XMarkIcon className="w-5 h-5 text-stone-500 dark:text-slate-400" />
+          </button>
+        </div>
+
+        <p
+          id="game-entry-details-description"
+          className="sr-only"
+        >
+          Full game name and capture ID for the selected entry.
+        </p>
+
+        <dl className="space-y-4 text-base">
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-stone-500 dark:text-slate-400">
+              Game Name
+            </dt>
+            <dd className="mt-1 whitespace-normal break-words text-stone-800 dark:text-slate-200">
+              {entry.gameName}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-stone-500 dark:text-slate-400">
+              Capture ID
+            </dt>
+            <dd className="mt-1 flex items-start gap-1.5">
+              <code className="min-w-0 flex-1 break-all select-all text-sm font-mono text-stone-500 dark:text-slate-400">
+                {entry.captureId}
+              </code>
+              <CopyButton text={entry.captureId} />
+            </dd>
+          </div>
+        </dl>
+
+        <div className="mt-6">
+          <Button onClick={onClose} variant="secondary">
+            Close
+          </Button>
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
 const CLOSE_DURATION = 160;
 
 const SOURCES: Record<
@@ -137,9 +233,11 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
     );
   }, [data, deferredGlobalFilter]);
   const [showInfo, setShowInfo] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<GameEntry | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const detailsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const closingRef = useRef(false);
   // Tracks whether a mousedown started on the backdrop, so releasing a text
   // selection that began inside the modal and ended on the backdrop doesn't
@@ -155,6 +253,27 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
       onClose();
     }, CLOSE_DURATION);
   }, [onClose]);
+
+  const openDetails = useCallback(
+    (entry: GameEntry, trigger: HTMLButtonElement) => {
+      detailsTriggerRef.current = trigger;
+      setSelectedEntry(entry);
+    },
+    [],
+  );
+
+  const closeDetails = useCallback(() => {
+    const trigger = detailsTriggerRef.current;
+    detailsTriggerRef.current = null;
+    setSelectedEntry(null);
+    requestAnimationFrame(() => {
+      if (trigger?.isConnected) {
+        trigger.focus();
+      } else {
+        searchRef.current?.focus();
+      }
+    });
+  }, []);
 
   useEffect(() => {
     loadCaptureIds()
@@ -199,7 +318,22 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
     () => [
       columnHelper.accessor("gameName", {
         header: "Game Name",
-        cell: (info) => info.getValue(),
+        cell: (info) => (
+          <button
+            type="button"
+            onClick={(event) => {
+              openDetails(info.row.original, event.currentTarget);
+            }}
+            className="flex min-h-11 min-w-11 w-full items-center gap-2 rounded-lg text-left hover:bg-stone-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label={`Show full details for ${info.getValue()}`}
+          >
+            <span className="min-w-0 flex-1 truncate">{info.getValue()}</span>
+            <InformationCircleIcon
+              aria-hidden="true"
+              className="w-4 h-4 shrink-0 text-stone-500 dark:text-slate-400"
+            />
+          </button>
+        ),
       }),
       columnHelper.accessor("captureId", {
         header: "Capture ID",
@@ -213,7 +347,7 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
         ),
       }),
     ],
-    [],
+    [openDetails],
   );
 
   const table = useReactTable({
@@ -236,6 +370,7 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
   });
 
   return (
+    <>
     <dialog
       ref={dialogRef}
       data-closing={isClosing ? "true" : undefined}
@@ -408,7 +543,7 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
                               role="cell"
                               className={`min-w-0 px-4 md:px-6 ${
                                 cell.column.id === "gameName"
-                                  ? "text-sm text-stone-800 dark:text-slate-200 truncate"
+                                  ? "text-sm text-stone-800 dark:text-slate-200"
                                   : "flex justify-end"
                               }`}
                             >
@@ -492,5 +627,10 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
         )}
       </div>
     </dialog>
+      <GameEntryDetails
+        entry={selectedEntry}
+        onClose={closeDetails}
+      />
+    </>
   );
 }

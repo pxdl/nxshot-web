@@ -1,6 +1,6 @@
 # 009 — Disclose complete game names and capture IDs from every database row
 
-- **Status**: TODO
+- **Status**: IN PROGRESS — implemented; pending central QA.
 - **Commit**: `2dcfc83d4f0b1ef7189cc8f76e7e0b788f392b9d` (audit baseline)
 - **Verified source base**: `0e3c5a5d39cf7f12cdd4ae66304a102e39718ac9` — 007 integrated; excerpts below refreshed. Launch may use a plans-only descendant supplied by the orchestrator.
 - **Severity**: MEDIUM
