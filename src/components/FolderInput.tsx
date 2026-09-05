@@ -95,11 +95,7 @@ export function FolderInput({
       });
       if (operationRef.current !== operation) return;
       setIsReading(false);
-      if (files.length > 0) {
-        await operation.complete(files);
-      } else {
-        operation.cancel();
-      }
+      await operation.complete(files);
     } catch (err) {
       // Reading a handle rejects on real IO failures (card ejected mid-scan,
       // permission revoked). Surface it instead of leaving the user staring at
@@ -184,15 +180,15 @@ export function FolderInput({
     const operation = operationRef.current;
     operationRef.current = null;
     const fileList = event.target.files;
-    const files = operation && fileList ? Array.from(fileList) : [];
+    const files = operation && fileList ? Array.from(fileList) : null;
     event.target.value = "";
 
     if (operation === null) return;
-    if (files.length > 0) {
-      await operation.complete(files);
-    } else {
+    if (files === null) {
       operation.cancel();
+      return;
     }
+    await operation.complete(files);
   };
 
   // ── Render ──

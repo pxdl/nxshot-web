@@ -103,11 +103,7 @@ export function useDropZone(
         )).flat();
         if (operationRef.current !== operation) return;
         setIsReading(false);
-        if (allFiles.length > 0) {
-          await operation.complete(allFiles);
-        } else {
-          operation.cancel();
-        }
+        await operation.complete(allFiles);
       } catch (err) {
         // getFile()/FileSystemFileEntry.file() reject on real IO failures
         // (SD card ejected mid-scan, permission revoked). Surface it instead of
