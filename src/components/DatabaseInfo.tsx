@@ -16,18 +16,32 @@ interface DatabaseErrorFallbackProps {
 
 function DatabaseErrorFallback({ onClose }: DatabaseErrorFallbackProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    if (!dialog.open) dialog.showModal();
     closeRef.current?.focus();
+
+    return () => {
+      if (dialog.open) dialog.close();
+    };
   }, []);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+    <dialog
+      ref={dialogRef}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="database-error-title"
       aria-describedby="database-error-description"
+      className="m-auto p-4 bg-transparent border-0 outline-none w-full h-full max-w-none flex items-center justify-center"
     >
       <div className="w-full max-w-md">
         <Card>
@@ -56,7 +70,7 @@ function DatabaseErrorFallback({ onClose }: DatabaseErrorFallbackProps) {
           </div>
         </Card>
       </div>
-    </div>
+    </dialog>
   );
 }
 
