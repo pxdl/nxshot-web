@@ -1,6 +1,6 @@
 # 001 — Own folder imports and ZIP exports in one lifecycle
 
-- **Status**: IN PROGRESS (implementation pending central verification)
+- **Status**: DONE — merged (`6e9b909`) and centrally verified; see [results](README.md#central-verification).
 - **Commit**: 2dcfc83d4f0b1ef7189cc8f76e7e0b788f392b9d
 - **Severity**: HIGH
 - **Category**: Bugs & correctness

@@ -1,6 +1,6 @@
 # 003 — Keep shared operation errors visible in every view
 
-- **Status**: IN PROGRESS (implementation complete; pending central QA)
+- **Status**: DONE — merged (`512c97a`) and centrally verified; see [results](README.md#central-verification).
 - **Commit**: 2dcfc83d4f0b1ef7189cc8f76e7e0b788f392b9d
 - **Severity**: MEDIUM
 - **Category**: Bugs & correctness

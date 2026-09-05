@@ -1,6 +1,6 @@
 # 002 — Report an empty folder instead of retaining stale captures
 
-- **Status**: IN PROGRESS (pending central QA)
+- **Status**: DONE — merged (`c2f73b9`) and centrally verified; see [results](README.md#central-verification).
 - **Commit**: 2dcfc83d4f0b1ef7189cc8f76e7e0b788f392b9d
 - **Severity**: MEDIUM
 - **Category**: Bugs & correctness

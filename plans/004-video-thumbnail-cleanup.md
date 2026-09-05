@@ -1,6 +1,6 @@
 # 004 — Revoke generated video thumbnail URLs on unmount
 
-- **Status**: IN PROGRESS (implementation pending central QA)
+- **Status**: DONE — merged (`37a516f`) and centrally verified; see [results](README.md#central-verification).
 - **Commit**: 2dcfc83 (audit baseline; the orchestrator refreshes the execution base after any authorized dependencies)
 - **Severity**: MEDIUM
 - **Category**: Performance

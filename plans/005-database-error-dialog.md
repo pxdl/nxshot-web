@@ -1,6 +1,6 @@
 # 005 — Make the database error fallback a native modal dialog
 
-- **Status**: IN PROGRESS — pending central QA
+- **Status**: DONE — merged (`d2f88e6`) and centrally verified; see [results](README.md#central-verification).
 - **Commit**: 2dcfc83 (audit baseline; the orchestrator refreshes the execution base after any authorized dependencies)
 - **Severity**: MEDIUM
 - **Category**: Accessibility

@@ -1,6 +1,6 @@
 # 006 — Offer real recovery after the gallery chunk fails
 
-- **Status**: IN PROGRESS — pending central QA
+- **Status**: DONE — merged (`b145939`) and centrally verified; see [results](README.md#central-verification).
 - **Commit**: 2dcfc83d4f0b1ef7189cc8f76e7e0b788f392b9d
 - **Severity**: MEDIUM
 - **Category**: Bugs & correctness
