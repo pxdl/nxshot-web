@@ -40,6 +40,7 @@ const READING_MESSAGES = [
 export default function App() {
   const {
     status,
+    isBusy,
     error,
     gameGroups,
     selectedGames,
@@ -54,23 +55,17 @@ export default function App() {
     totalFileCount,
     folderStructure,
     setFolderStructure,
-    processFiles,
+    beginImport,
     downloadZip,
     toggleGame,
     selectAll,
     deselectAll,
     backToGallery,
-    reportError,
   } = useScreenshotProcessor();
 
-  const canAcceptDrop =
-    status !== "scanning" && status !== "loading" && status !== "processing";
-  const { isDragging, isReading: isReadingDrop, fileCount: dropFileCount } = useDropZone(
-    (files) => {
-      if (canAcceptDrop) processFiles(files);
-    },
-    { canAcceptDrop, onError: reportError }
-  );
+  const canAcceptDrop = !isBusy;
+  const { isDragging, isReading: isReadingDrop, fileCount: dropFileCount } =
+    useDropZone(beginImport, { canAcceptDrop });
 
   const { message: dropMessage, visible: dropMessageVisible } =
     useCyclingMessage(READING_MESSAGES, isReadingDrop);
@@ -183,9 +178,8 @@ export default function App() {
                   {status === "idle" && <FolderStructureGuide />}
 
                   <FolderInput
-                    onFilesSelected={processFiles}
-                    onError={reportError}
-                    disabled={status === "scanning"}
+                    onImportStart={beginImport}
+                    disabled={isBusy}
                     variant="secondary"
                     icon={
                       status === "scanning" ? (
@@ -281,7 +275,7 @@ export default function App() {
                 <Button
                   onClick={downloadZip}
                   variant="primary"
-                  disabled={selectedFileCount === 0}
+                  disabled={isBusy || selectedFileCount === 0}
                   icon={<ArrowDownTrayIcon className="w-5 h-5" />}
                 >
                   {selectedFileCount > 0
@@ -292,8 +286,8 @@ export default function App() {
 
               <div className="w-full max-w-md">
                 <FolderInput
-                  onFilesSelected={processFiles}
-                  onError={reportError}
+                  onImportStart={beginImport}
+                  disabled={isBusy}
                   variant="ghost"
                   icon={<FolderIcon className="w-5 h-5" />}
                 >
@@ -396,6 +390,7 @@ export default function App() {
                 {gameGroups.length > 0 && (
                   <Button
                     onClick={backToGallery}
+                    disabled={isBusy}
                     variant="ghost"
                     icon={<ArrowUturnLeftIcon className="w-5 h-5" />}
                   >
@@ -404,8 +399,8 @@ export default function App() {
                 )}
 
                 <FolderInput
-                  onFilesSelected={processFiles}
-                  onError={reportError}
+                  onImportStart={beginImport}
+                  disabled={isBusy}
                   variant="secondary"
                   icon={<FolderIcon className="w-5 h-5" />}
                 >

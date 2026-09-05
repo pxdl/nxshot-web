@@ -2,6 +2,12 @@ export interface CaptureIds {
   [key: string]: string;
 }
 
+export interface FolderImportOperation {
+  complete: (files: File[]) => Promise<void>;
+  fail: (message: string) => void;
+  cancel: () => void;
+}
+
 export interface Screenshot {
   year: number;
   month: number;
