@@ -166,6 +166,12 @@ export default function App() {
           </p>
         </div>
 
+        {error && (
+          <div className={`w-full mb-4 ${isGalleryView ? "max-w-6xl" : "max-w-md"}`}>
+            <ErrorAlert message={error} />
+          </div>
+        )}
+
         {/* Idle / Scanning State */}
         {(status === "idle" || status === "scanning") && (
           <div
@@ -200,8 +206,6 @@ export default function App() {
                     </p>
                   )}
                 </div>
-
-                {error && <ErrorAlert message={error} />}
               </div>
             </Card>
           </div>
@@ -213,8 +217,6 @@ export default function App() {
             className={`w-full max-w-6xl ${isGalleryView ? "animate-fade-up" : "hidden"}`}
             style={isGalleryView ? { animationDelay: "0.1s" } : undefined}
           >
-            {error && <ErrorAlert message={error} className="mb-4" />}
-
             <ErrorBoundary
               fallback={
                 <ErrorAlert message="Something went wrong loading the gallery. Your files are safe — try selecting your folder again." />
