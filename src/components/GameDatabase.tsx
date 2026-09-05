@@ -223,6 +223,7 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
     onSortingChange: setSorting,
     getCoreRowModel: coreRowModel,
     getSortedRowModel: sortedRowModel,
+    getRowId: (row) => row.captureId,
   });
 
   const { rows } = table.getRowModel();
@@ -307,81 +308,122 @@ export function GameDatabase({ metadata, onClose }: GameDatabaseProps) {
           </div>
         ) : (
           <>
-            {/* Column headers */}
-            <div className="shrink-0 grid grid-cols-[1fr_auto] border-b border-stone-200 dark:border-slate-700/50 bg-stone-50 dark:bg-[#0d1117]/50">
-              {table.getHeaderGroups().map((headerGroup) =>
-                headerGroup.headers.map((header) => {
-                  const sorted = header.column.getIsSorted();
-                  return (
-                    <button
-                      key={header.id}
-                      type="button"
-                      onClick={header.column.getToggleSortingHandler()}
-                      className={`flex items-center gap-1.5 px-4 md:px-6 py-3 text-xs font-medium uppercase tracking-wide text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-300 transition-colors cursor-pointer ${
-                        header.id === "captureId"
-                          ? "text-right justify-end"
-                          : "text-left"
-                      }`}
-                    >
-                      {flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )}
-                      {sorted === "asc" ? (
-                        <ChevronUpIcon className="w-3.5 h-3.5" />
-                      ) : sorted === "desc" ? (
-                        <ChevronDownIcon className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronUpDownIcon className="w-3.5 h-3.5 opacity-30" />
-                      )}
-                    </button>
-                  );
-                }),
-              )}
-            </div>
-
-            {/* Virtualized rows */}
-            <div ref={parentRef} className="flex-1 overflow-auto">
-              {rows.length === 0 ? (
-                <div className="flex items-center justify-center h-48 text-stone-500 dark:text-slate-400 text-sm">
-                  No games found matching &ldquo;{globalFilter}&rdquo;
-                </div>
-              ) : (
-                <div
-                  style={{ height: `${virtualizer.getTotalSize()}px` }}
-                  className="relative w-full"
-                >
-                  {virtualizer.getVirtualItems().map((virtualRow) => {
-                    const row = rows[virtualRow.index]!;
-                    return (
-                      <div
-                        key={row.id}
-                        className="absolute top-0 left-0 w-full grid grid-cols-[1fr_auto] items-center border-b border-stone-100 dark:border-slate-800/50 hover:bg-stone-50 dark:hover:bg-slate-800/30 transition-colors"
-                        style={{
-                          height: `${virtualRow.size}px`,
-                          transform: `translateY(${virtualRow.start}px)`,
-                        }}
-                      >
-                        {row.getVisibleCells().map((cell) => (
-                          <div
-                            key={cell.id}
-                            className={`px-4 md:px-6 ${
-                              cell.column.id === "gameName"
-                                ? "text-sm text-stone-800 dark:text-slate-200 truncate"
-                                : "flex justify-end"
+            <div
+              role="table"
+              aria-labelledby="game-database-title"
+              aria-colcount={2}
+              aria-rowcount={rows.length + 1}
+              className="flex-1 min-h-0 flex flex-col"
+            >
+              {/* Column headers */}
+              <div
+                role="rowgroup"
+                className="shrink-0 border-b border-stone-200 dark:border-slate-700/50 bg-stone-50 dark:bg-[#0d1117]/50"
+              >
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <div
+                    key={headerGroup.id}
+                    role="row"
+                    aria-rowindex={1}
+                    className="grid grid-cols-[1fr_auto]"
+                  >
+                    {headerGroup.headers.map((header) => {
+                      const sorted = header.column.getIsSorted();
+                      const ariaSort =
+                        sorted === "asc"
+                          ? "ascending"
+                          : sorted === "desc"
+                            ? "descending"
+                            : "none";
+                      return (
+                        <div
+                          key={header.id}
+                          role="columnheader"
+                          aria-sort={ariaSort}
+                          className="min-w-0"
+                        >
+                          <button
+                            type="button"
+                            onClick={header.column.getToggleSortingHandler()}
+                            className={`w-full flex items-center gap-1.5 px-4 md:px-6 py-3 text-xs font-medium uppercase tracking-wide text-stone-500 dark:text-slate-400 hover:text-stone-700 dark:hover:text-slate-300 transition-colors cursor-pointer ${
+                              header.id === "captureId"
+                                ? "text-right justify-end"
+                                : "text-left"
                             }`}
                           >
                             {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext(),
+                              header.column.columnDef.header,
+                              header.getContext(),
                             )}
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                            {sorted === "asc" ? (
+                              <ChevronUpIcon className="w-3.5 h-3.5" />
+                            ) : sorted === "desc" ? (
+                              <ChevronDownIcon className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronUpDownIcon className="w-3.5 h-3.5 opacity-30" />
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              {/* Virtualized rows */}
+              <div
+                ref={parentRef}
+                role="rowgroup"
+                className="min-h-0 flex-1 overflow-auto"
+              >
+                {rows.length === 0 ? (
+                  <div
+                    role="presentation"
+                    className="flex items-center justify-center h-48 text-stone-500 dark:text-slate-400 text-sm"
+                  >
+                    No games found matching &ldquo;{globalFilter}&rdquo;
+                  </div>
+                ) : (
+                  <div
+                    role="presentation"
+                    style={{ height: `${virtualizer.getTotalSize()}px` }}
+                    className="relative w-full"
+                  >
+                    {virtualizer.getVirtualItems().map((virtualRow) => {
+                      const row = rows[virtualRow.index]!;
+                      return (
+                        <div
+                          key={row.id}
+                          role="row"
+                          aria-rowindex={virtualRow.index + 2}
+                          className="absolute top-0 left-0 w-full grid grid-cols-[1fr_auto] items-center border-b border-stone-100 dark:border-slate-800/50 hover:bg-stone-50 dark:hover:bg-slate-800/30 transition-colors"
+                          style={{
+                            height: `${virtualRow.size}px`,
+                            transform: `translateY(${virtualRow.start}px)`,
+                          }}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <div
+                              key={cell.id}
+                              role="cell"
+                              className={`min-w-0 px-4 md:px-6 ${
+                                cell.column.id === "gameName"
+                                  ? "text-sm text-stone-800 dark:text-slate-200 truncate"
+                                  : "flex justify-end"
+                              }`}
+                            >
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext(),
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Footer */}

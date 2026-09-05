@@ -1,6 +1,6 @@
 # 007 — Give the virtualized game database read-only table semantics
 
-- **Status**: TODO
+- **Status**: IN PROGRESS pending central verification
 - **Commit**: `2dcfc83d4f0b1ef7189cc8f76e7e0b788f392b9d` (audit baseline)
 - **Severity**: MEDIUM
 - **Category**: Accessibility
