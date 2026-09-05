@@ -2,20 +2,21 @@
 
 - **Status**: TODO
 - **Commit**: `2dcfc83d4f0b1ef7189cc8f76e7e0b788f392b9d` (audit baseline)
+- **Verified source base**: `0e3c5a5d39cf7f12cdd4ae66304a102e39718ac9` — 007 integrated; excerpts below refreshed. Launch may use a plans-only descendant supplied by the orchestrator.
 - **Severity**: MEDIUM
 - **Category**: Accessibility
 - **Rule**: Beyond the scan — accessible disclosure for clipped table values
 - **Estimated scope**: 1 source file (`src/components/GameDatabase.tsx`), approximately 100 lines changed
 - **Dependency**: **007 — database table semantics** MUST be integrated first. This plan changes the game-name cell inside 007's role-table markup and must never be executed concurrently with 007.
 
-> **Execution-base gate.** The commit above is the audit snapshot only. Main MUST first integrate 007, then refresh this plan's execution-base commit and every source excerpt/line reference against the resulting `src/components/GameDatabase.tsx` before dispatching this plan. If any unrelated source drift is present, stop and report it rather than improvising. The executor edits only this plan's allowed source; Main runs the centralized validation after the serial 007 → 009 dependency is complete.
+> **Execution-base gate satisfied.** Main integrated 007 (`e28b2eb`) and refreshed the affected excerpts against `0e3c5a5`. Plans 004/005/008 are also integrated in that ancestor and are authorized independent changes. Source lines below refer to this verified tree; the exact launch commit may add only updated plans. Stop only for unrelated source drift. This executor owns the listed source file; Main performs centralized validation.
 
 ## Problem
 
-At the audit baseline, the game-name column exposes only a raw string and the capture-ID column deliberately truncates the value on narrow widths. `src/components/GameDatabase.tsx:198-217` is the column definition:
+At the verified execution base, the game-name column exposes a raw string and the capture-ID column truncates its value on narrow widths. `src/components/GameDatabase.tsx:198-217` is unchanged by 007:
 
 ```tsx
-// src/components/GameDatabase.tsx:198-217 — current at audit baseline
+// src/components/GameDatabase.tsx:198-217 — current at verified execution base
   const columns = useMemo(
     () => [
       columnHelper.accessor("gameName", {
@@ -38,31 +39,32 @@ At the audit baseline, the game-name column exposes only a raw string and the ca
   );
 ```
 
-The baseline row cell wrapper at `src/components/GameDatabase.tsx:365-379` also applies `truncate` to the game-name cell. At 390px wide, long regional game-name variants are clipped and the 32-character capture ID is clipped; neither value has a visible, keyboard/touch-reachable way to read the complete text. `select-all` only helps the part already rendered, and the existing Copy button's name describes copying rather than disclosing the full value.
+The current semantic row cell at `src/components/GameDatabase.tsx:405-420` still applies `truncate` to the game-name value. At 390px, long regional title variants and 32-character IDs are clipped. Selection and Copy can extract the full underlying text, but neither provides a visible keyboard/touch expanded reading surface.
 
 ```tsx
-// src/components/GameDatabase.tsx:365-379 — current at audit baseline
-                        {row.getVisibleCells().map((cell) => (
-                          <div
-                            key={cell.id}
-                            className={`px-4 md:px-6 ${
-                              cell.column.id === "gameName"
-                                ? "text-sm text-stone-800 dark:text-slate-200 truncate"
-                                : "flex justify-end"
-                            }`}
-                          >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext(),
-                            )}
-                          </div>
-                        ))}
+// src/components/GameDatabase.tsx:405-420 — current after plan 007
+                          {row.getVisibleCells().map((cell) => (
+                            <div
+                              key={cell.id}
+                              role="cell"
+                              className={`min-w-0 px-4 md:px-6 ${
+                                cell.column.id === "gameName"
+                                  ? "text-sm text-stone-800 dark:text-slate-200 truncate"
+                                  : "flex justify-end"
+                              }`}
+                            >
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext(),
+                              )}
+                            </div>
+                          ))}
 ```
 
-The existing source modal is a native modal dialog at `src/components/GameDatabase.tsx:237-252`; it owns the search field, sort controls, virtualized rows, and source footer. It must remain intact. The full-value disclosure needs to be a sibling native dialog, not a nested dialog or content inside the `role="table"` from plan 007.
+The existing source modal at `src/components/GameDatabase.tsx:238-253` owns search, sorting, virtual rows, and the source footer. Preserve it. Render the new details dialog as its sibling, outside both that native dialog and 007's role-table content.
 
 ```tsx
-// src/components/GameDatabase.tsx:237-252 — current source dialog
+// src/components/GameDatabase.tsx:238-253 — current source dialog
   return (
     <dialog
       ref={dialogRef}
@@ -304,7 +306,7 @@ At the return boundary, wrap the existing source `<dialog>` in a fragment and re
         aria-labelledby="game-database-title"
 ```
 
-Keep every existing source-dialog child, including the plan-007 `role="table"` wrapper and its footer, unchanged. At the current end (`src/components/GameDatabase.tsx:451-453` at baseline), close the source dialog first and then add the sibling component:
+Keep existing source-dialog children, including the role-table and footer, unchanged. At `src/components/GameDatabase.tsx:494-495`, close the source dialog first, then add the sibling component:
 
 ```tsx
       </dialog>
@@ -323,7 +325,7 @@ This placement keeps the details dialog outside the source dialog's `role="table
 
 - Keep the existing module-scope `CopyButton` pattern at `src/components/GameDatabase.tsx:46-92`: local state/timers live inside the small component, clipboard failures are caught, and the native button carries an accessible label. Reuse that component unchanged for the full capture ID; do not duplicate clipboard logic.
 - Keep native modal behavior consistent with the source dialog's `showModal()` effect and `cancel` listener at `src/components/GameDatabase.tsx:176-196`. The details component may use its inline `onCancel` handler because it has no exit animation; it must still prevent the native default and close itself during cleanup.
-- Keep Tailwind utilities, the existing light/dark palette, and existing modal surface classes. Imitate `DatabaseInfo.tsx:75-78`'s `requestAnimationFrame(() => triggerRef.current?.focus())` focus-return convention, but use the captured trigger plus `isConnected` fallback required here.
+- Keep Tailwind, the existing light/dark palette and modal surfaces. Follow the explicit animation-frame focus return in this file's target `closeDetails` and the existing `DatabaseInfo.closeDatabase` convention, adding the captured-trigger `isConnected` fallback required for virtualization.
 - Keep `useMemo` dependencies honest: `columns` must depend on `[openDetails]`; `openDetails` and `closeDetails` must each use `[]` because they only use stable setters/refs. Do not silence a hook diagnostic or move selected-entry state into a module variable.
 - Keep the plan-007 semantic table contract: two columns, rowgroups, `aria-sort`, stable `captureId` row IDs, `aria-rowcount={rows.length + 1}`, and the footer outside the table. The sibling details dialog must never be a table row or cell.
 

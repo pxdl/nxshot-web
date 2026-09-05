@@ -31,14 +31,14 @@ Start 001, 004, 005, 007 and 008 independently. After their commits are reviewed
 
 | Plan | Finding | Status | Prerequisite | Executor / branch | Commit / verification |
 |---|---|---|---|---|---|
-| [001](001-shared-operation-ownership.md) | Shared import/export operation ownership | TODO | — | Not launched | — |
+| [001](001-shared-operation-ownership.md) | Shared import/export operation ownership | IN PROGRESS | — | `nxfix001` · `wN:p1` · `fix/react-001-operation-ownership` | Base `7b39164`; implementation running |
 | [002](002-empty-folder-outcomes.md) | Empty selections must clear stale captures and report outcome | TODO | 001 | Not launched | — |
 | [003](003-visible-import-errors.md) | Operation errors must remain visible from Done | TODO | 001 | Not launched | — |
-| [004](004-video-thumbnail-cleanup.md) | Generated video-thumbnail Blob URL leak | TODO | — | Not launched | — |
-| [005](005-database-error-dialog.md) | Database failure must remain a real modal | TODO | — | Not launched | — |
+| [004](004-video-thumbnail-cleanup.md) | Generated video-thumbnail Blob URL leak | IN PROGRESS | — | `nxfix004` · `wP:p1` · `fix/react-004-thumbnail-cleanup` | `37a516f` merged; central QA pending |
+| [005](005-database-error-dialog.md) | Database failure must remain a real modal | IN PROGRESS | — | `nxfix005` · `wQ:p1` · `fix/react-005-database-error-dialog` | `d2f88e6` merged; central QA pending |
 | [006](006-gallery-load-recovery.md) | Cached lazy-gallery rejection needs working recovery | TODO | 003 | Not launched | — |
-| [007](007-database-table-semantics.md) | Virtualized database needs table and sort semantics | TODO | — | Not launched | — |
-| [008](008-folder-popup-dismissal.md) | Popup must close when keyboard focus leaves | TODO | — | Not launched | — |
+| [007](007-database-table-semantics.md) | Virtualized database needs table and sort semantics | IN PROGRESS | — | `nxfix007` · `wR:p1` · `fix/react-007-database-table-semantics` | `e28b2eb` merged; central QA pending |
+| [008](008-folder-popup-dismissal.md) | Popup must close when keyboard focus leaves | IN PROGRESS | — | `nxfix008` · `wS:p1` · `fix/react-008-popup-dismissal` | `40f07eb` merged; central QA pending |
 | [009](009-database-full-values.md) | Full game names and IDs need keyboard/touch disclosure | TODO | 007 | Not launched | — |
 
 ## Final verification
